@@ -623,12 +623,34 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
             //   padLeft  = x donde empieza el texto del título
             //   fontSize = tamaño de fuente del título
             //   top/height = posición y alto del recuadro
+            // Dos juegos de calibración: PC (desktop) y móvil (mobile). En móvil el título
+            // de YouTube se ve más pequeño y en otra posición, así que necesita sus propios valores.
+            // En móvil hay DOS posiciones por suministrador: el móvil en vertical (portrait)
+            // y en horizontal (landscape), porque el título de YouTube se ve distinto en cada una.
             var CALS = {
-                dazn:   { padLeft: 60, fontSize: 22, top: 13, height: 23 },
-                rtve:   { padLeft: 60, fontSize: 22, top: 14, height: 23 },
-                replay: { padLeft: 60, fontSize: 22, top: 12, height: 23 }
+                desktop: {
+                    dazn:   { padLeft: 60, fontSize: 22, top: 13, height: 23 },
+                    rtve:   { padLeft: 60, fontSize: 22, top: 14, height: 23 },
+                    replay: { padLeft: 60, fontSize: 22, top: 12, height: 23 }
+                },
+                mobile: {
+                    portrait: {
+                        dazn:   { padLeft: 12, fontSize: 11, top: 6, height: 13 },
+                        rtve:   { padLeft: 12, fontSize: 11, top: 6, height: 13 },
+                        replay: { padLeft: 12, fontSize: 11, top: 6, height: 13 }
+                    },
+                    landscape: {
+                        dazn:   { padLeft: 40, fontSize: 18, top: 10, height: 20 },
+                        rtve:   { padLeft: 40, fontSize: 18, top: 10, height: 20 },
+                        replay: { padLeft: 40, fontSize: 18, top: 10, height: 20 }
+                    }
+                }
             };
-            function CAL() { return CALS[pendingProvider] || CALS.dazn; }
+            function CAL() {
+                if (isDesktop) return CALS.desktop[pendingProvider] || CALS.desktop.dazn;
+                var set = CALS.mobile[landscape.matches ? 'landscape' : 'portrait'] || CALS.mobile.portrait;
+                return set[pendingProvider] || set.dazn || CALS.desktop.dazn;
+            }
 
             // Medidor de ancho de texto real con la fuente de YouTube (canvas measureText).
             var _measureCtx = document.createElement('canvas').getContext('2d');
@@ -639,23 +661,20 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
             function titleBefore() { return pendingScoreStart >= 0 ? pendingTitle.slice(0, pendingScoreStart) : ''; }
             function titleScore() { return pendingScoreStart >= 0 ? pendingTitle.slice(pendingScoreStart, pendingScoreStart + pendingScoreLen) : ''; }
 
-            function sync() {
-                if (landscape.matches) {
-                    goButton.disabled = false;
-                    goButton.classList.remove('disabled');
-                    goButton.textContent = 'Ver el vídeo ▶';
-                } else {
-                    goButton.disabled = true;
-                    goButton.classList.add('disabled');
-                    goButton.textContent = 'Gira el móvil para activar';
-                }
+            // Al girar el móvil (o cambiar el tamaño), recolocar el recuadro con la calibración
+            // que toque (vertical u horizontal). En modo calibrar NO se toca: lo colocas tú.
+            function repositionBox() {
+                if (calibrating) return;
+                if (!overlay.classList.contains('playing')) return;
+                var boxEl = document.getElementById('scoreBox');
+                if (boxEl && pendingScoreStart >= 0) boxEl.style.cssText = boxStyle();
             }
             if (landscape.addEventListener) {
-                landscape.addEventListener('change', sync);
+                landscape.addEventListener('change', repositionBox);
             } else {
-                window.addEventListener('orientationchange', sync);
+                window.addEventListener('orientationchange', repositionBox);
             }
-            window.addEventListener('resize', sync);
+            window.addEventListener('resize', repositionBox);
 
             function goFullscreen() {
                 var request = frame.requestFullscreen || frame.webkitRequestFullscreen || frame.msRequestFullscreen;
@@ -749,7 +768,8 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
                     var baseScore = measureText(titleScore(), 100);   // ancho del marcador a 100px de fuente
                     var fontSize = baseScore > 0 ? (box.width * 100 / baseScore) : c.fontSize;
                     var padLeft = box.left - measureText(titleBefore(), fontSize);
-                    readout.textContent = '[' + pendingProvider.toUpperCase() + ']  fontSize=' + fontSize.toFixed(1) +
+                    var plat = isDesktop ? 'PC' : ('MÓVIL ' + (landscape.matches ? 'HORIZONTAL' : 'VERTICAL'));
+                    readout.textContent = '[' + pendingProvider.toUpperCase() + ' · ' + plat + ']  fontSize=' + fontSize.toFixed(1) +
                         'px  padLeft=' + padLeft.toFixed(0) + 'px  top=' + box.top.toFixed(0) + 'px  alto=' + box.height.toFixed(0) + 'px';
                 }
                 function toPx(cx, cy) {
@@ -805,13 +825,7 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
                     pendingScoreStart = parseInt(element.getAttribute('data-score-start'), 10);
                     if (isNaN(pendingScoreStart)) pendingScoreStart = -1;
                     pendingScoreLen = parseInt(element.getAttribute('data-score-len'), 10) || 0;
-                    if (isDesktop) {
-                        play();                          // en PC: abrir el vídeo directamente
-                    } else {
-                        overlay.classList.remove('playing');
-                        sync();
-                        overlay.classList.add('show');   // en móvil: pop-up para girar
-                    }
+                    play();   // PC y móvil: abrir el vídeo directamente (sin pop-up de girar)
                 });
             });
 
