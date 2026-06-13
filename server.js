@@ -42,7 +42,7 @@ const FIXTURES = [
     { date: '2026-06-12', time: '04:00', home: 'Corea del Sur', away: 'República Checa' },
     { date: '2026-06-12', time: '21:00', home: 'Canadá', away: 'Bosnia y Herzegovina' },
     { date: '2026-06-13', time: '03:00', home: 'Estados Unidos', away: 'Paraguay' },
-    { date: '2026-06-13', time: '06:00', home: 'Australia', away: 'Turquía' },
+    { date: '2026-06-14', time: '06:00', home: 'Australia', away: 'Turquía' },
     { date: '2026-06-13', time: '21:00', home: 'Catar', away: 'Suiza' },
     { date: '2026-06-14', time: '00:00', home: 'Brasil', away: 'Marruecos' },
     { date: '2026-06-14', time: '03:00', home: 'Haití', away: 'Escocia' },
@@ -366,6 +366,9 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>Mundial 2026 · Resúmenes sin spoilers</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;900&display=swap" rel="stylesheet">
     <style>
         :root {
             --bg: #f2f4f9; --card: #ffffff; --text: #0f1430; --muted: #6b7280;
@@ -385,12 +388,20 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
         }
         header { text-align: center; padding: 24px 0 14px; }
         header .emblem { height: 98px; width: auto; display: block; margin: 0 auto 14px; }
-        header h1 { margin: 0; font-size: 1.2rem; font-weight: 800; letter-spacing: .2px; }
-        header .host { margin-top: 8px; font-size: .82rem; font-weight: 800; letter-spacing: 2px; }
+        header h1 {
+            margin: 0; font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.5rem;
+            letter-spacing: 4px; text-transform: uppercase;
+            background: linear-gradient(95deg, var(--ca), var(--us) 50%, var(--mx));
+            -webkit-background-clip: text; background-clip: text; color: transparent;
+        }
+        header .host {
+            margin-top: 10px; font-family: 'Orbitron', sans-serif; font-size: .72rem; font-weight: 700; letter-spacing: 4px;
+        }
         header .host .ca { color: var(--ca); } header .host .us { color: var(--us); } header .host .mx { color: var(--mx); }
-        header .host span { margin: 0 3px; color: #c2c7d6; }
+        header .host span { margin: 0 5px; color: #c2c7d6; }
         header .note {
-            margin: 14px auto 0; max-width: 380px; font-size: .82rem; color: var(--muted); line-height: 1.45;
+            margin: 16px auto 0; max-width: 400px; font-size: .72rem; color: var(--muted); line-height: 1.7;
+            text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;
         }
         .day { max-width: 540px; margin: 0 auto; }
         .day h2 {
@@ -462,6 +473,19 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
             border-radius: 10px; overflow: hidden;
         }
         .player .frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+        .player .frame .title-mask {
+            position: absolute; top: 0; left: 0; right: 0; height: 6%; z-index: 2; pointer-events: none;
+            background: linear-gradient(to bottom, #000 0%, #000 70%, rgba(0,0,0,0) 100%);
+        }
+        @media (pointer: coarse) {
+            .player .frame .title-mask { height: 9%; }
+        }
+        .player .frame .load-cover {
+            position: absolute; inset: 0; z-index: 3; display: flex; align-items: center; justify-content: center;
+            background: #000; color: #fff; font-weight: 700; letter-spacing: .5px; font-size: .9rem;
+            transition: opacity .4s ease;
+        }
+        .player .frame .load-cover.hidden { opacity: 0; pointer-events: none; }
         .player .yt-fallback { display: block; margin-top: 12px; color: #cdd3e6; font-size: .8rem; text-decoration: underline; text-align: center; }
         .watch {
             flex: 1; display: flex; flex-direction: column; align-items: center; gap: 7px;
@@ -500,7 +524,7 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
         <img class="emblem" src="/emblem.svg" alt="FIFA World Cup 2026" width="63" height="98">
         <h1>World Cup 2026</h1>
         <div class="host"><span class="ca">CANADÁ</span><span>·</span><span class="us">USA</span><span>·</span><span class="mx">MÉXICO</span></div>
-        <div class="note">Resúmenes de los partidos sin spoilers (sin mostrar el resultado). Narración en español (DAZN o RTVE).</div>
+        <div class="note">Resúmenes sin spoilers (sin mostrar el resultado).<br>Narración en español de España (DAZN o RTVE).</div>
     </header>
 
     <main><!--CONTENT--></main>
@@ -532,7 +556,9 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
             var frame = document.getElementById('videoFrame');
             var fallback = document.getElementById('ytFallback');
             var pendingId = null;
+            var coverTimer = null;
             var landscape = window.matchMedia('(orientation: landscape)');
+            var isDesktop = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 
             function sync() {
                 if (landscape.matches) {
@@ -552,34 +578,52 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
             }
             window.addEventListener('resize', sync);
 
+            function goFullscreen() {
+                var request = frame.requestFullscreen || frame.webkitRequestFullscreen || frame.msRequestFullscreen;
+                if (request) { try { request.call(frame); } catch (error) { /* no soportado */ } }
+            }
+
+            function play() {
+                if (!pendingId) return;
+                var id = encodeURIComponent(pendingId);
+                frame.innerHTML = '<iframe src="https://www.youtube-nocookie.com/embed/' + id +
+                    '?autoplay=1&rel=0&modestbranding=1&playsinline=1" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>' +
+                    '<div class="title-mask"></div>' +
+                    '<div class="load-cover" id="loadCover">Cargando resumen…</div>';
+                fallback.href = 'https://www.youtube.com/watch?v=' + id;
+                overlay.classList.add('show');
+                overlay.classList.add('playing');
+                goFullscreen();
+                clearTimeout(coverTimer);
+                coverTimer = setTimeout(function () {
+                    var cover = document.getElementById('loadCover');
+                    if (cover) cover.classList.add('hidden');
+                }, 1800);
+            }
+
             function closeAll() {
                 overlay.classList.remove('show');
                 overlay.classList.remove('playing');
+                clearTimeout(coverTimer);
                 frame.innerHTML = '';
-            }
-
-            function goFullscreen() {
-                var request = frame.requestFullscreen || frame.webkitRequestFullscreen || frame.msRequestFullscreen;
-                if (request) { try { request.call(frame); } catch (error) { /* not supported */ } }
             }
 
             document.querySelectorAll('.watch[data-video]').forEach(function (element) {
                 element.addEventListener('click', function () {
                     pendingId = element.getAttribute('data-video');
-                    overlay.classList.remove('playing');
-                    sync();
-                    overlay.classList.add('show');
+                    if (isDesktop) {
+                        play();                          // en PC: abrir el vídeo directamente
+                    } else {
+                        overlay.classList.remove('playing');
+                        sync();
+                        overlay.classList.add('show');   // en móvil: pop-up para girar
+                    }
                 });
             });
 
             goButton.addEventListener('click', function () {
                 if (goButton.disabled || !pendingId) return;
-                var id = encodeURIComponent(pendingId);
-                frame.innerHTML = '<iframe src="https://www.youtube-nocookie.com/embed/' + id +
-                    '?autoplay=1&rel=0&modestbranding=1&playsinline=1" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>';
-                fallback.href = 'https://www.youtube.com/watch?v=' + id;
-                overlay.classList.add('playing');
-                goFullscreen();
+                play();
             });
 
             closeButton.addEventListener('click', closeAll);
