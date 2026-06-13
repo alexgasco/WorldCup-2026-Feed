@@ -1,0 +1,16 @@
+{
+  "name": "world-cup-2026-feed",
+  "version": "1.0.0",
+  "description": "Lightweight web server that reads two YouTube playlist RSS feeds, removes score spoilers from titles and serves a mobile-optimized HTML page.",
+  "main": "server.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "rss-parser": "^3.13.0"
+  },
+  "license": "MIT"
+}
