@@ -19,6 +19,7 @@ try {
 
 const daznPlaylistId = 'PL8vYHFKv-YcqjDmrVZm-AghTsjCaMNNwi';
 const tvePlaylistId = 'PLhEMBJiEYKv5FvOHB49kE5-dCMHzZHuKa';
+const replayPlaylistId = 'PLPPlHBqoxcoM';
 const PORT = process.env.PORT || 3000;
 
 const getRssUrl = (playlistId) => `https://www.youtube.com/feeds/videos.xml?playlist_id=${playlistId}`;
@@ -210,9 +211,13 @@ const buildVideoEntry = (item, source) => {
     } catch (error) {
         views = '';
     }
+    // Posición del marcador dentro del título (para tapar solo esos caracteres).
+    const scoreMatch = item.title.match(/\(\s*\d+\s*[-–—]\s*\d+\s*\)/) || item.title.match(/\d+\s*[-–—]\s*\d+/);
     return {
         source, teams, link: item.link, videoId: (item.id || '').split(':').pop(),
         thumbnail, views,
+        scoreStart: scoreMatch ? scoreMatch.index : -1,
+        scoreLen: scoreMatch ? scoreMatch[0].length : 0,
         date: new Date(item.isoDate),
         matchKey: matchKeyOf(teams),
     };
@@ -224,17 +229,19 @@ const escapeHtml = (text) =>
 const flagImg = (team) =>
     `<img class="flag" src="https://flagcdn.com/w80/${team.iso}.png" srcset="https://flagcdn.com/w160/${team.iso}.png 2x" width="44" height="33" alt="${escapeHtml(team.name)}" loading="lazy">`;
 
-const renderButton = (entry, symbolId, brandClass) => {
-    const logo = `<svg class="brand ${brandClass}" aria-hidden="true"><use href="#${symbolId}"></use></svg>`;
+const renderButton = (entry, symbolId, brandClass, textLogo) => {
+    const logo = symbolId
+        ? `<svg class="brand ${brandClass}" aria-hidden="true"><use href="#${symbolId}"></use></svg>`
+        : `<span class="brand brand-text ${brandClass}">${textLogo}</span>`;
     if (entry) {
-        return `<button class="watch ${brandClass}" data-video="${escapeHtml(entry.videoId)}">${logo}<span class="cap">Ver resumen ▶</span></button>`;
+        return `<button class="watch ${brandClass}" data-video="${escapeHtml(entry.videoId)}" data-score-start="${entry.scoreStart}" data-score-len="${entry.scoreLen}">${logo}<span class="cap">Ver ▶</span></button>`;
     }
-    return `<button class="watch ${brandClass} disabled" disabled>${logo}<span class="cap">No disponible</span></button>`;
+    return `<button class="watch ${brandClass} disabled" disabled>${logo}<span class="cap">No disp.</span></button>`;
 };
 
 const renderMatchCard = (match) => {
     const [home, away] = match.teams;
-    const reference = match.rtve || match.dazn;
+    const reference = match.rtve || match.dazn || match.replay;
     const views = reference ? formatViews(reference.views) : '';
     const thumbnail = reference && reference.thumbnail ? reference.thumbnail : '';
 
@@ -262,12 +269,13 @@ const renderMatchCard = (match) => {
                 <div class="buttons">
                     ${renderButton(match.dazn, 'logo-dazn', 'dazn')}
                     ${renderButton(match.rtve, 'logo-rtve', 'rtve')}
+                    ${renderButton(match.replay, null, 'replay', 'REPLAY')}
                 </div>
             </div>
         </article>`;
 };
 
-const buildPage = (daznFeed, tveFeed) => {
+const buildPage = (daznFeed, tveFeed, replayFeed) => {
     const matches = new Map();
 
     // 1) Seed with the manual calendar so future matches show without a video.
@@ -303,6 +311,7 @@ const buildPage = (daznFeed, tveFeed) => {
     };
     tveFeed.items.forEach((item) => addVideo(item, 'rtve'));
     daznFeed.items.forEach((item) => addVideo(item, 'dazn'));
+    replayFeed.items.forEach((item) => addVideo(item, 'replay'));
 
     // 3) Group by day (newest day first), matches sorted by kickoff time.
     const days = new Map();
@@ -400,8 +409,8 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
         header .host .ca { color: var(--ca); } header .host .us { color: var(--us); } header .host .mx { color: var(--mx); }
         header .host span { margin: 0 5px; color: #c2c7d6; }
         header .note {
-            margin: 16px auto 0; max-width: 400px; font-size: .72rem; color: var(--muted); line-height: 1.7;
-            text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;
+            margin: 16px auto 0; max-width: 400px; font-size: .62rem; color: var(--muted); line-height: 1.7;
+            text-transform: uppercase; letter-spacing: .8px; font-weight: 600;
         }
         .day { max-width: 540px; margin: 0 auto; }
         .day h2 {
@@ -438,7 +447,7 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
         .team .name { font-size: .92rem; font-weight: 700; text-align: center; line-height: 1.2; }
         .vs { font-size: .82rem; font-weight: 900; color: var(--gold); padding: 0 6px; letter-spacing: 1px; }
         .views { text-align: center; color: var(--muted); font-size: .76rem; margin-top: 12px; }
-        .buttons { display: flex; gap: 10px; margin-top: 16px; }
+        .buttons { display: flex; gap: 8px; margin-top: 16px; }
         #videoOverlay {
             display: none; position: fixed; inset: 0; z-index: 9999; align-items: center; justify-content: center;
             padding: 24px; background: rgba(15,20,48,.55); backdrop-filter: blur(3px);
@@ -473,12 +482,18 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
             border-radius: 10px; overflow: hidden;
         }
         .player .frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
-        .player .frame .title-mask {
-            position: absolute; top: 0; left: 0; right: 0; height: 6%; z-index: 2; pointer-events: none;
-            background: linear-gradient(to bottom, #000 0%, #000 70%, rgba(0,0,0,0) 100%);
+        .player .frame .score-box {
+            position: absolute; z-index: 2; pointer-events: none; border-radius: 3px;
+            background: rgba(30,30,35,.28);
+            backdrop-filter: blur(7px) saturate(1.1);
+            -webkit-backdrop-filter: blur(7px) saturate(1.1);
+            box-shadow: 0 0 0 1px rgba(255,255,255,.25);
         }
-        @media (pointer: coarse) {
-            .player .frame .title-mask { height: 9%; }
+        .player .frame .cal-catch { position: absolute; inset: 0; z-index: 5; cursor: crosshair; }
+        .player .frame .cal-readout {
+            position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 6;
+            background: rgba(0,0,0,.82); color: #fff; padding: 7px 14px; border-radius: 8px;
+            font-size: .8rem; font-weight: 700; pointer-events: none; white-space: nowrap;
         }
         .player .frame .load-cover {
             position: absolute; inset: 0; z-index: 3; display: flex; align-items: center; justify-content: center;
@@ -496,12 +511,16 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
         .watch .brand { display: block; }
         .watch .brand.logo-rtve, .brand.rtve { height: 20px; width: 39px; }
         .watch .brand.logo-dazn, .brand.dazn { height: 26px; width: 26px; border-radius: 4px; }
-        .watch .cap { font-size: .74rem; font-weight: 700; }
+        .watch .cap { font-size: .7rem; font-weight: 700; }
+        .watch .brand.brand-text { display: flex; align-items: center; justify-content: center; height: 26px; font-weight: 900; font-size: .78rem; letter-spacing: .5px; }
         .watch.rtve { box-shadow: inset 0 0 0 0 var(--rtve); }
         .watch.rtve .cap { color: var(--rtve); }
         .watch.rtve:not(.disabled) { border-color: rgba(230,81,31,.45); background: #fff7f2; }
         .watch.dazn .cap { color: var(--dazn); }
         .watch.dazn:not(.disabled) { border-color: rgba(17,17,17,.30); background: #f6f7f9; }
+        .watch.replay .brand-text { color: var(--mx); }
+        .watch.replay .cap { color: var(--mx); }
+        .watch.replay:not(.disabled) { border-color: rgba(0,154,68,.4); background: #f1faf4; }
         .watch.disabled { cursor: default; opacity: .45; background: #f5f6f9; }
         .watch.disabled .cap { color: var(--muted); }
         .calendar { max-width: 540px; margin: 18px auto 0; }
@@ -556,9 +575,16 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
             var frame = document.getElementById('videoFrame');
             var fallback = document.getElementById('ytFallback');
             var pendingId = null;
+            var pendingScoreStart = -1;
+            var pendingScoreLen = 0;
             var coverTimer = null;
             var landscape = window.matchMedia('(orientation: landscape)');
             var isDesktop = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+            var calibrating = /[?&]calibrar=1/.test(location.search);
+
+            // ---- CALIBRACIÓN del recuadro que tapa el marcador del título ----
+            // (valores en % del reproductor; los ajustamos juntos)
+            var CAL = { padLeft: 1.5, charW: 1.2, top: 3, height: 6 };
 
             function sync() {
                 if (landscape.matches) {
@@ -583,13 +609,33 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
                 if (request) { try { request.call(frame); } catch (error) { /* no soportado */ } }
             }
 
+            function boxStyle() {
+                var left = CAL.padLeft + pendingScoreStart * CAL.charW;
+                var width = pendingScoreLen * CAL.charW;
+                return 'left:' + left + '%;width:' + width + '%;top:' + CAL.top + '%;height:' + CAL.height + '%';
+            }
+            function placeBox() {
+                var b = document.getElementById('scoreBox');
+                if (b) b.setAttribute('style', boxStyle());
+            }
+
             function play() {
                 if (!pendingId) return;
                 var id = encodeURIComponent(pendingId);
-                frame.innerHTML = '<iframe src="https://www.youtube-nocookie.com/embed/' + id +
-                    '?autoplay=1&rel=0&modestbranding=1&playsinline=1" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>' +
-                    '<div class="title-mask"></div>' +
-                    '<div class="load-cover" id="loadCover">Cargando resumen…</div>';
+                var autoplay = calibrating ? '0' : '1';
+                var html = '<iframe src="https://www.youtube-nocookie.com/embed/' + id +
+                    '?autoplay=' + autoplay + '&rel=0&modestbranding=1&playsinline=1" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>';
+                if (!calibrating) {
+                    html += '<div class="load-cover" id="loadCover">Cargando resumen…</div>';
+                }
+                if (pendingScoreStart >= 0) {
+                    html += '<div class="score-box" id="scoreBox" style="' + boxStyle() + '"></div>';
+                }
+                if (calibrating) {
+                    html += '<div class="cal-catch" id="calCatch"></div>' +
+                        '<div class="cal-readout" id="calReadout">Toca sobre el marcador del título</div>';
+                }
+                frame.innerHTML = html;
                 fallback.href = 'https://www.youtube.com/watch?v=' + id;
                 overlay.classList.add('show');
                 overlay.classList.add('playing');
@@ -599,6 +645,31 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
                     var cover = document.getElementById('loadCover');
                     if (cover) cover.classList.add('hidden');
                 }, 1800);
+                if (calibrating) {
+                    var catcher = document.getElementById('calCatch');
+                    if (catcher) {
+                        var dragging = false;
+                        var applyPoint = function (clientX, clientY) {
+                            var rect = frame.getBoundingClientRect();
+                            var xPct = (clientX - rect.left) / rect.width * 100;
+                            var yPct = (clientY - rect.top) / rect.height * 100;
+                            if (pendingScoreStart > 0) CAL.charW = (xPct - CAL.padLeft) / pendingScoreStart;
+                            CAL.top = yPct;
+                            placeBox();
+                            var readout = document.getElementById('calReadout');
+                            if (readout) {
+                                readout.textContent = 'anchoCaracter=' + CAL.charW.toFixed(2) +
+                                    '  top=' + CAL.top.toFixed(1) + '  (arrastra para mover)';
+                            }
+                        };
+                        catcher.addEventListener('mousedown', function (e) { dragging = true; applyPoint(e.clientX, e.clientY); });
+                        catcher.addEventListener('mousemove', function (e) { if (dragging) applyPoint(e.clientX, e.clientY); });
+                        window.addEventListener('mouseup', function () { dragging = false; });
+                        catcher.addEventListener('touchstart', function (e) { dragging = true; applyPoint(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+                        catcher.addEventListener('touchmove', function (e) { if (dragging) applyPoint(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+                        window.addEventListener('touchend', function () { dragging = false; });
+                    }
+                }
             }
 
             function closeAll() {
@@ -611,6 +682,9 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
             document.querySelectorAll('.watch[data-video]').forEach(function (element) {
                 element.addEventListener('click', function () {
                     pendingId = element.getAttribute('data-video');
+                    pendingScoreStart = parseInt(element.getAttribute('data-score-start'), 10);
+                    if (isNaN(pendingScoreStart)) pendingScoreStart = -1;
+                    pendingScoreLen = parseInt(element.getAttribute('data-score-len'), 10) || 0;
                     if (isDesktop) {
                         play();                          // en PC: abrir el vídeo directamente
                     } else {
@@ -652,13 +726,15 @@ const server = http.createServer(async (req, res) => {
     }
 
     try {
-        const [daznFeed, tveFeed] = await Promise.all([
-            parser.parseURL(getRssUrl(daznPlaylistId)),
-            parser.parseURL(getRssUrl(tvePlaylistId)),
+        const fetchFeed = (id) => parser.parseURL(getRssUrl(id)).catch(() => ({ items: [] }));
+        const [daznFeed, tveFeed, replayFeed] = await Promise.all([
+            fetchFeed(daznPlaylistId),
+            fetchFeed(tvePlaylistId),
+            fetchFeed(replayPlaylistId),
         ]);
 
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(buildPage(daznFeed, tveFeed));
+        res.end(buildPage(daznFeed, tveFeed, replayFeed));
     } catch (serverError) {
         res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
         res.end('System Failure: ' + serverError.message);
