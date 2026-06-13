@@ -272,7 +272,7 @@ const renderButton = (entry, symbolId, brandClass, textLogo) => {
     if (entry) {
         return `<button class="watch ${brandClass}" data-provider="${brandClass}" data-video="${escapeHtml(entry.videoId)}" data-title="${escapeHtml(entry.title)}" data-score-start="${entry.scoreStart}" data-score-len="${entry.scoreLen}">${logo}<span class="cap">Ver ▶</span>${audio}</button>`;
     }
-    return `<button class="watch ${brandClass} disabled" disabled>${logo}<span class="cap">No disp.</span>${audio}</button>`;
+    return `<button class="watch ${brandClass} disabled" disabled>${logo}<span class="cap">No disponible</span>${audio}</button>`;
 };
 
 const renderMatchCard = (match) => {
@@ -513,10 +513,12 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
         #videoOverlay.playing { background: rgba(0,0,0,.94); padding: 12px; }
         #videoOverlay.playing .box { display: none; }
         #videoOverlay.playing .player { display: block; }
-        .player .player-close {
-            display: block; margin: 0 0 10px auto; background: rgba(255,255,255,.16); color: #fff;
+        .player .player-bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .player .player-close, .player .player-fs {
+            background: rgba(255,255,255,.16); color: #fff;
             border: none; border-radius: 8px; padding: 8px 14px; font-weight: 700; cursor: pointer;
         }
+        .player .player-fs { background: var(--us); }
         .player .frame {
             position: relative; width: 100%; aspect-ratio: 16 / 9; background: #000;
             border-radius: 10px; overflow: hidden;
@@ -615,7 +617,10 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
             <button class="close" id="videoClose">Cancelar</button>
         </div>
         <div class="player">
-            <button class="player-close" id="playerClose">✕ Cerrar</button>
+            <div class="player-bar">
+                <button class="player-fs" id="playerFs">⛶ Pantalla completa</button>
+                <button class="player-close" id="playerClose">✕ Cerrar</button>
+            </div>
             <div class="frame" id="videoFrame"></div>
             <a class="yt-fallback" id="ytFallback" target="_blank" rel="noopener">¿No se ve el vídeo? Ábrelo en YouTube ↗</a>
         </div>
@@ -627,6 +632,7 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
             var goButton = document.getElementById('videoGo');
             var closeButton = document.getElementById('videoClose');
             var playerClose = document.getElementById('playerClose');
+            var playerFs = document.getElementById('playerFs');
             var frame = document.getElementById('videoFrame');
             var fallback = document.getElementById('ytFallback');
             var pendingId = null;
@@ -704,19 +710,6 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
                 if (request) { try { request.call(frame); } catch (error) { /* no soportado */ } }
             }
 
-            // Si YouTube pone a pantalla completa SOLO su iframe (botón propio de YouTube),
-            // el recuadro quedaría fuera. Lo detectamos y redirigimos la pantalla completa
-            // a nuestro contenedor .frame (que incluye iframe + recuadro), para que el recuadro siga visible.
-            function onFsChange() {
-                var fsEl = document.fullscreenElement || document.webkitFullscreenElement;
-                if (!fsEl) return;
-                var iframe = frame.querySelector('iframe');
-                if (iframe && fsEl === iframe) {
-                    goFullscreen(); // re-apunta la pantalla completa a .frame (sin salir)
-                }
-            }
-            document.addEventListener('fullscreenchange', onFsChange);
-            document.addEventListener('webkitfullscreenchange', onFsChange);
 
             function boxStyle() {
                 var c = CAL();
@@ -742,8 +735,10 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
                 // hl=es y cc_lang_pref=es: forzar el idioma del reproductor a español para que YouTube
                 // muestre el TÍTULO en español (el mismo que leemos del RSS y que medimos). Si no,
                 // mostraría a veces el título en inglés y el recuadro no cuadraría.
+                // fs=0: ocultar el botón de pantalla completa de YouTube. Ese botón solo agranda su iframe
+                // (dejando fuera el recuadro). Usamos nuestro propio botón, que agranda iframe + recuadro juntos.
                 var html = '<iframe src="https://www.youtube-nocookie.com/embed/' + id +
-                    '?autoplay=' + autoplay + '&rel=0&modestbranding=1&playsinline=1&hl=es&cc_lang_pref=es" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>';
+                    '?autoplay=' + autoplay + '&rel=0&modestbranding=1&playsinline=1&hl=es&cc_lang_pref=es&fs=0" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>';
                 if (!calibrating) {
                     html += '<div class="load-cover" id="loadCover">Cargando resumen…</div>';
                 }
@@ -867,6 +862,8 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
 
             closeButton.addEventListener('click', closeAll);
             playerClose.addEventListener('click', closeAll);
+            // Nuestro botón de pantalla completa: agranda el contenedor (iframe + recuadro), no solo el iframe.
+            if (playerFs) playerFs.addEventListener('click', goFullscreen);
         })();
     </script>
 </body>
