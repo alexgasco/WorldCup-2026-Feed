@@ -636,13 +636,13 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
             // y en horizontal (landscape), porque el título de YouTube se ve distinto en cada una.
             var CALS = {
                 desktop: {
-                    dazn:   { padLeft: 60, fontSize: 22, top: 13, height: 23 },
-                    rtve:   { padLeft: 60, fontSize: 22, top: 14, height: 23 },
-                    replay: { padLeft: 60, fontSize: 22, top: 12, height: 23 }
+                    dazn:   { padLeft: 49, fontSize: 21.8, top: 12, height: 27 },
+                    rtve:   { padLeft: 56, fontSize: 22.5, top: 12, height: 23 },
+                    replay: { padLeft: 69, fontSize: 22.0, top: 12, height: 23 }
                 },
                 mobile: {
                     portrait: {
-                        dazn:   { padLeft: 106, fontSize: 16.1, top: 57, height: 26 },
+                        dazn:   { padLeft: 100, fontSize: 16.1, top: 57, height: 26 },
                         rtve:   { padLeft: 76, fontSize: 18.1, top: 59, height: 26 },
                         replay: { padLeft: 71, fontSize: 19.2, top: 59, height: 25 }
                     },
