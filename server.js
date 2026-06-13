@@ -17,6 +17,19 @@ try {
     console.warn('Aviso: no se encontró emblem.svg, la cabecera saldrá sin emblema.');
 }
 
+// Logo del canal Replay: se usa solo si colocas el archivo en la carpeta
+// (replay-logo.png o replay-logo.svg). Si no está, se usa el icono genérico.
+let REPLAY_LOGO = null;
+try {
+    if (fs.existsSync(path.join(__dirname, 'replay-logo.png'))) {
+        REPLAY_LOGO = { data: fs.readFileSync(path.join(__dirname, 'replay-logo.png')), type: 'image/png' };
+    } else if (fs.existsSync(path.join(__dirname, 'replay-logo.svg'))) {
+        REPLAY_LOGO = { data: fs.readFileSync(path.join(__dirname, 'replay-logo.svg')), type: 'image/svg+xml' };
+    }
+} catch (error) {
+    REPLAY_LOGO = null;
+}
+
 const daznPlaylistId = 'PL8vYHFKv-YcqjDmrVZm-AghTsjCaMNNwi';
 const tvePlaylistId = 'PLhEMBJiEYKv5FvOHB49kE5-dCMHzZHuKa';
 const replayPlaylistId = 'PLPPlHBqoxcoM';
@@ -215,7 +228,7 @@ const buildVideoEntry = (item, source) => {
     const scoreMatch = item.title.match(/\(\s*\d+\s*[-–—]\s*\d+\s*\)/) || item.title.match(/\d+\s*[-–—]\s*\d+/);
     return {
         source, teams, link: item.link, videoId: (item.id || '').split(':').pop(),
-        thumbnail, views,
+        thumbnail, views, title: item.title || '',
         scoreStart: scoreMatch ? scoreMatch.index : -1,
         scoreLen: scoreMatch ? scoreMatch[0].length : 0,
         date: new Date(item.isoDate),
@@ -230,13 +243,21 @@ const flagImg = (team) =>
     `<img class="flag" src="https://flagcdn.com/w80/${team.iso}.png" srcset="https://flagcdn.com/w160/${team.iso}.png 2x" width="44" height="33" alt="${escapeHtml(team.name)}" loading="lazy">`;
 
 const renderButton = (entry, symbolId, brandClass, textLogo) => {
-    const logo = symbolId
-        ? `<svg class="brand ${brandClass}" aria-hidden="true"><use href="#${symbolId}"></use></svg>`
-        : `<span class="brand brand-text ${brandClass}">${textLogo}</span>`;
-    if (entry) {
-        return `<button class="watch ${brandClass}" data-video="${escapeHtml(entry.videoId)}" data-score-start="${entry.scoreStart}" data-score-len="${entry.scoreLen}">${logo}<span class="cap">Ver ▶</span></button>`;
+    let logo;
+    if (brandClass === 'replay' && REPLAY_LOGO) {
+        logo = `<img class="brand replay-img" src="/replay-logo" alt="Replay" aria-hidden="true">`;
+    } else if (symbolId) {
+        logo = `<svg class="brand ${brandClass}" aria-hidden="true"><use href="#${symbolId}"></use></svg>`;
+    } else {
+        logo = `<span class="brand brand-text ${brandClass}">${textLogo}</span>`;
     }
-    return `<button class="watch ${brandClass} disabled" disabled>${logo}<span class="cap">No disp.</span></button>`;
+    const audio = brandClass === 'replay'
+        ? `<span class="audio" title="Sin narración">🔇</span>`
+        : `<span class="audio" title="Narración en español de España">🗣️<img class="miniflag" src="https://flagcdn.com/w20/es.png" width="16" height="11" alt="España"></span>`;
+    if (entry) {
+        return `<button class="watch ${brandClass}" data-provider="${brandClass}" data-video="${escapeHtml(entry.videoId)}" data-title="${escapeHtml(entry.title)}" data-score-start="${entry.scoreStart}" data-score-len="${entry.scoreLen}">${logo}<span class="cap">Ver ▶</span>${audio}</button>`;
+    }
+    return `<button class="watch ${brandClass} disabled" disabled>${logo}<span class="cap">No disp.</span>${audio}</button>`;
 };
 
 const renderMatchCard = (match) => {
@@ -269,7 +290,7 @@ const renderMatchCard = (match) => {
                 <div class="buttons">
                     ${renderButton(match.dazn, 'logo-dazn', 'dazn')}
                     ${renderButton(match.rtve, 'logo-rtve', 'rtve')}
-                    ${renderButton(match.replay, null, 'replay', 'REPLAY')}
+                    ${renderButton(match.replay, null, 'replay', '@Replay')}
                 </div>
             </div>
         </article>`;
@@ -367,6 +388,9 @@ const LOGO_DEFS = `
         </linearGradient>
         <path fill="url(#rtveGrad)" d="M40.7,187.3c0,10.6-6.4,15.4-20.2,15.4C6.4,202.7,0,197.6,0,187.3V61c0-11.3,5.4-16.1,17.6-16.1c11.3,0,15.1,2.5,17.6,12.2c0.6,1.9,1.6,2.9,2.5,2.9c1,0,1.6-0.4,3.8-2.5c8-7.7,21.5-12.5,35.3-12.5c8.3,0,12.5,4.4,12.5,13.2c0,20.2-3.8,27.6-13.8,27.6c-24.4,0-35.9,13.2-34.9,39.7V187.3z M104.5,16.1C104.5,5.2,111,0,124.8,0c14.2,0,20.5,5.2,20.5,16.1v23c0,4.8,1.6,6.4,6.4,6.4h10.9c10.9,0,16.1,6.1,16.1,19.2c0,12.8-5.2,19-16.1,19h-10.9c-4.4,0-6.4,1.9-6.4,6.4v48.1c0,21.8,7.1,32.4,21.5,32.4c3.5,0,7.1-0.4,16.7-1.3c1-0.4,1.9-0.4,3.2-0.4c7.1,0,10.2,3.5,10.2,11.9c0,15.7-13.8,24.4-38.2,24.4c-35.9,0-54.2-23.4-54.2-69.3C104.5,135.9,104.5,16.1,104.5,16.1z M285.8,67.7c6.5-18.6,11.3-23,24.4-23c12.2,0,18.6,4.8,18.6,13.8c0,2.3-0.4,3.2-1.6,7.1l-42.7,115.1c-6.5,17.6-11.5,22.1-24.4,22.1c-12.8,0-18-4.4-24.4-22.1L193.1,65.5c-1.3-3.2-1.6-4.8-1.6-7.1c0-9,6.5-13.8,18.6-13.8c13.2,0,17.6,4.4,24,23l21.5,61.9c1,2.5,2.3,3.8,4.4,3.8c1.9,0,3.5-1.3,4.2-3.8L285.8,67.7z M375.3,158.2c-3.8,0-5.4,1.6-5.4,4.8c0,31.8,20.9,51.4,55.2,51.4c12.2,0,20.5-1.9,35.6-8c5.2-1.9,7.3-2.5,9.6-2.5c5.4,0,9.4,4.8,9.4,12.2c0,19.2-26.3,34-61.2,34c-57.1,0-89.2-36.6-89.2-101.7c0-64.5,30.8-103.3,81.7-103.3c43.6,0,72.9,32.8,72.9,81.5c0,24.4-6.4,31.8-27.8,31.8h-80.8V158.2z M439.4,125.8c3.8,0,5.2-1.6,5.2-5.8c0-29.5-12.8-45.5-35.9-45.5c-22.8,0-38.2,19.2-38.2,46.8c0,2.9,1.9,4.4,5.2,4.4C375.7,125.8,439.4,125.8,439.4,125.8z"/>
     </symbol>
+    <symbol id="logo-replay" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
+    </symbol>
 </svg>`;
 
 const PAGE_TEMPLATE = `<!DOCTYPE html>
@@ -374,10 +398,10 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>Mundial 2026 · Resúmenes sin spoilers</title>
+    <title>World Cup 2026 sin Spoilers</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;900&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         :root {
             --bg: #f2f4f9; --card: #ffffff; --text: #0f1430; --muted: #6b7280;
@@ -483,15 +507,19 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
         }
         .player .frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
         .player .frame .score-box {
-            position: absolute; z-index: 2; pointer-events: none; border-radius: 3px;
+            position: absolute; z-index: 2; pointer-events: none; border-radius: 4px;
             background: rgba(30,30,35,.28);
             backdrop-filter: blur(7px) saturate(1.1);
             -webkit-backdrop-filter: blur(7px) saturate(1.1);
-            box-shadow: 0 0 0 1px rgba(255,255,255,.25);
         }
-        .player .frame .cal-catch { position: absolute; inset: 0; z-index: 5; cursor: crosshair; }
+        .player .frame .cal-catch { position: absolute; inset: 0; z-index: 5; }
+        .player .frame .score-box.cal { pointer-events: auto; cursor: move; z-index: 6; }
+        .player .frame .rs-handle {
+            position: absolute; right: -7px; bottom: -7px; width: 18px; height: 18px; z-index: 7;
+            background: #fff; border: 2px solid #2aa7ff; border-radius: 50%; cursor: nwse-resize; pointer-events: auto;
+        }
         .player .frame .cal-readout {
-            position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 6;
+            position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 8;
             background: rgba(0,0,0,.82); color: #fff; padding: 7px 14px; border-radius: 8px;
             font-size: .8rem; font-weight: 700; pointer-events: none; white-space: nowrap;
         }
@@ -511,16 +539,20 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
         .watch .brand { display: block; }
         .watch .brand.logo-rtve, .brand.rtve { height: 20px; width: 39px; }
         .watch .brand.logo-dazn, .brand.dazn { height: 26px; width: 26px; border-radius: 4px; }
+        .watch .brand.logo-replay, .brand.replay { height: 24px; width: 24px; }
+        .watch .brand.replay-img { height: 26px; width: 26px; border-radius: 50%; object-fit: cover; }
+        .watch .brand.brand-text { height: auto; width: auto; font-weight: 800; font-size: .95rem; line-height: 26px; letter-spacing: .2px; }
         .watch .cap { font-size: .7rem; font-weight: 700; }
-        .watch .brand.brand-text { display: flex; align-items: center; justify-content: center; height: 26px; font-weight: 900; font-size: .78rem; letter-spacing: .5px; }
+        .watch .audio { display: flex; align-items: center; justify-content: center; gap: 3px; font-size: .72rem; margin-top: 3px; line-height: 1; }
+        .watch .miniflag { width: 16px; height: 11px; border-radius: 2px; box-shadow: 0 0 0 .5px rgba(0,0,0,.15); }
         .watch.rtve { box-shadow: inset 0 0 0 0 var(--rtve); }
         .watch.rtve .cap { color: var(--rtve); }
         .watch.rtve:not(.disabled) { border-color: rgba(230,81,31,.45); background: #fff7f2; }
         .watch.dazn .cap { color: var(--dazn); }
         .watch.dazn:not(.disabled) { border-color: rgba(17,17,17,.30); background: #f6f7f9; }
-        .watch.replay .brand-text { color: var(--mx); }
-        .watch.replay .cap { color: var(--mx); }
-        .watch.replay:not(.disabled) { border-color: rgba(0,154,68,.4); background: #f1faf4; }
+        .watch.replay .brand.replay { color: var(--us); }
+        .watch.replay .cap { color: var(--us); }
+        .watch.replay:not(.disabled) { border-color: rgba(0,51,160,.4); background: #eef2fb; }
         .watch.disabled { cursor: default; opacity: .45; background: #f5f6f9; }
         .watch.disabled .cap { color: var(--muted); }
         .calendar { max-width: 540px; margin: 18px auto 0; }
@@ -543,7 +575,7 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
         <img class="emblem" src="/emblem.svg" alt="FIFA World Cup 2026" width="63" height="98">
         <h1>World Cup 2026</h1>
         <div class="host"><span class="ca">CANADÁ</span><span>·</span><span class="us">USA</span><span>·</span><span class="mx">MÉXICO</span></div>
-        <div class="note">Resúmenes sin spoilers (sin mostrar el resultado).<br>Narración en español de España (DAZN o RTVE).</div>
+        <div class="note">Resúmenes sin spoilers (sin mostrar el resultado final).</div>
     </header>
 
     <main><!--CONTENT--></main>
@@ -575,16 +607,37 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
             var frame = document.getElementById('videoFrame');
             var fallback = document.getElementById('ytFallback');
             var pendingId = null;
+            var pendingTitle = '';
             var pendingScoreStart = -1;
             var pendingScoreLen = 0;
+            var pendingProvider = 'dazn';
             var coverTimer = null;
             var landscape = window.matchMedia('(orientation: landscape)');
             var isDesktop = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
             var calibrating = /[?&]calibrar=1/.test(location.search);
 
             // ---- CALIBRACIÓN del recuadro que tapa el marcador del título ----
-            // (valores en % del reproductor; los ajustamos juntos)
-            var CAL = { padLeft: 1.5, charW: 1.2, top: 3, height: 6 };
+            // En vez de contar letras (la fuente es proporcional), MEDIMOS el ancho real
+            // en píxeles del texto que va antes del número, con la misma fuente que YouTube (Roboto).
+            // Una calibración independiente por suministrador, en píxeles a pantalla completa:
+            //   padLeft  = x donde empieza el texto del título
+            //   fontSize = tamaño de fuente del título
+            //   top/height = posición y alto del recuadro
+            var CALS = {
+                dazn:   { padLeft: 60, fontSize: 22, top: 13, height: 23 },
+                rtve:   { padLeft: 60, fontSize: 22, top: 14, height: 23 },
+                replay: { padLeft: 60, fontSize: 22, top: 12, height: 23 }
+            };
+            function CAL() { return CALS[pendingProvider] || CALS.dazn; }
+
+            // Medidor de ancho de texto real con la fuente de YouTube (canvas measureText).
+            var _measureCtx = document.createElement('canvas').getContext('2d');
+            function measureText(str, fontSize) {
+                _measureCtx.font = '500 ' + fontSize + 'px Roboto, Arial, sans-serif';
+                return _measureCtx.measureText(str || '').width;
+            }
+            function titleBefore() { return pendingScoreStart >= 0 ? pendingTitle.slice(0, pendingScoreStart) : ''; }
+            function titleScore() { return pendingScoreStart >= 0 ? pendingTitle.slice(pendingScoreStart, pendingScoreStart + pendingScoreLen) : ''; }
 
             function sync() {
                 if (landscape.matches) {
@@ -609,31 +662,52 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
                 if (request) { try { request.call(frame); } catch (error) { /* no soportado */ } }
             }
 
-            function boxStyle() {
-                var left = CAL.padLeft + pendingScoreStart * CAL.charW;
-                var width = pendingScoreLen * CAL.charW;
-                return 'left:' + left + '%;width:' + width + '%;top:' + CAL.top + '%;height:' + CAL.height + '%';
+            // Si YouTube pone a pantalla completa SOLO su iframe (botón propio de YouTube),
+            // el recuadro quedaría fuera. Lo detectamos y redirigimos la pantalla completa
+            // a nuestro contenedor .frame (que incluye iframe + recuadro), para que el recuadro siga visible.
+            function onFsChange() {
+                var fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+                if (!fsEl) return;
+                var iframe = frame.querySelector('iframe');
+                if (iframe && fsEl === iframe) {
+                    goFullscreen(); // re-apunta la pantalla completa a .frame (sin salir)
+                }
             }
-            function placeBox() {
-                var b = document.getElementById('scoreBox');
-                if (b) b.setAttribute('style', boxStyle());
+            document.addEventListener('fullscreenchange', onFsChange);
+            document.addEventListener('webkitfullscreenchange', onFsChange);
+
+            function boxStyle() {
+                var c = CAL();
+                // Posición = inicio del título + ancho REAL del texto antes del número.
+                var left = c.padLeft + measureText(titleBefore(), c.fontSize);
+                var width = measureText(titleScore(), c.fontSize);
+                return 'left:' + left + 'px;top:' + c.top + 'px;width:' + width + 'px;height:' + c.height + 'px';
             }
 
             function play() {
                 if (!pendingId) return;
                 var id = encodeURIComponent(pendingId);
-                var autoplay = calibrating ? '0' : '1';
+                // Reproducir SIEMPRE (también al calibrar): así el título de YouTube
+                // se renderiza igual en ambos modos y la calibración coincide con lo que se ve.
+                var autoplay = '1';
+                // El botón de pantalla completa de YouTube SÍ se muestra. Cuando se pulsa,
+                // YouTube pone a pantalla completa solo su iframe (y el recuadro quedaría fuera);
+                // lo detectamos abajo y redirigimos la pantalla completa a nuestro contenedor (iframe + recuadro).
                 var html = '<iframe src="https://www.youtube-nocookie.com/embed/' + id +
                     '?autoplay=' + autoplay + '&rel=0&modestbranding=1&playsinline=1" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>';
                 if (!calibrating) {
                     html += '<div class="load-cover" id="loadCover">Cargando resumen…</div>';
                 }
                 if (pendingScoreStart >= 0) {
-                    html += '<div class="score-box" id="scoreBox" style="' + boxStyle() + '"></div>';
+                    if (calibrating) {
+                        html += '<div class="score-box cal" id="scoreBox"><div class="rs-handle" id="rsHandle"></div></div>';
+                    } else {
+                        html += '<div class="score-box" id="scoreBox" style="' + boxStyle() + '"></div>';
+                    }
                 }
                 if (calibrating) {
-                    html += '<div class="cal-catch" id="calCatch"></div>' +
-                        '<div class="cal-readout" id="calReadout">Toca sobre el marcador del título</div>';
+                    // Sin capa bloqueante: el ratón llega al reproductor y mantiene visible el título.
+                    html += '<div class="cal-readout" id="calReadout">Arrastra el recuadro · esquina = tamaño</div>';
                 }
                 frame.innerHTML = html;
                 fallback.href = 'https://www.youtube.com/watch?v=' + id;
@@ -645,31 +719,75 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
                     var cover = document.getElementById('loadCover');
                     if (cover) cover.classList.add('hidden');
                 }, 1800);
-                if (calibrating) {
-                    var catcher = document.getElementById('calCatch');
-                    if (catcher) {
-                        var dragging = false;
-                        var applyPoint = function (clientX, clientY) {
-                            var rect = frame.getBoundingClientRect();
-                            var xPct = (clientX - rect.left) / rect.width * 100;
-                            var yPct = (clientY - rect.top) / rect.height * 100;
-                            if (pendingScoreStart > 0) CAL.charW = (xPct - CAL.padLeft) / pendingScoreStart;
-                            CAL.top = yPct;
-                            placeBox();
-                            var readout = document.getElementById('calReadout');
-                            if (readout) {
-                                readout.textContent = 'anchoCaracter=' + CAL.charW.toFixed(2) +
-                                    '  top=' + CAL.top.toFixed(1) + '  (arrastra para mover)';
-                            }
-                        };
-                        catcher.addEventListener('mousedown', function (e) { dragging = true; applyPoint(e.clientX, e.clientY); });
-                        catcher.addEventListener('mousemove', function (e) { if (dragging) applyPoint(e.clientX, e.clientY); });
-                        window.addEventListener('mouseup', function () { dragging = false; });
-                        catcher.addEventListener('touchstart', function (e) { dragging = true; applyPoint(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
-                        catcher.addEventListener('touchmove', function (e) { if (dragging) applyPoint(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
-                        window.addEventListener('touchend', function () { dragging = false; });
-                    }
+                if (calibrating && pendingScoreStart >= 0) setupCalibration();
+            }
+
+            function setupCalibration() {
+                var boxEl = document.getElementById('scoreBox');
+                var handleEl = document.getElementById('rsHandle');
+                var readout = document.getElementById('calReadout');
+                if (!boxEl || !handleEl) return;
+
+                var c = CAL();
+                var box = {
+                    left: c.padLeft + measureText(titleBefore(), c.fontSize),
+                    top: c.top,
+                    width: measureText(titleScore(), c.fontSize),
+                    height: c.height
+                };
+                var mode = null, startX = 0, startY = 0, startBox = null;
+
+                function render() {
+                    boxEl.style.cssText = 'left:' + box.left + 'px;top:' + box.top +
+                        'px;width:' + box.width + 'px;height:' + box.height + 'px';
                 }
+                // Deriva los valores de la fórmula a partir del recuadro que el usuario ha colocado:
+                //   fontSize: el tamaño con el que el ancho medido del marcador coincide con el ancho del recuadro
+                //   padLeft : x del recuadro menos el ancho medido del texto anterior (a ese fontSize)
+                function showValues() {
+                    if (!readout) return;
+                    var baseScore = measureText(titleScore(), 100);   // ancho del marcador a 100px de fuente
+                    var fontSize = baseScore > 0 ? (box.width * 100 / baseScore) : c.fontSize;
+                    var padLeft = box.left - measureText(titleBefore(), fontSize);
+                    readout.textContent = '[' + pendingProvider.toUpperCase() + ']  fontSize=' + fontSize.toFixed(1) +
+                        'px  padLeft=' + padLeft.toFixed(0) + 'px  top=' + box.top.toFixed(0) + 'px  alto=' + box.height.toFixed(0) + 'px';
+                }
+                function toPx(cx, cy) {
+                    var r = frame.getBoundingClientRect();
+                    return { x: cx - r.left, y: cy - r.top };
+                }
+                function start(cx, cy, m) {
+                    mode = m;
+                    var p = toPx(cx, cy);
+                    startX = p.x; startY = p.y;
+                    startBox = { left: box.left, top: box.top, width: box.width, height: box.height };
+                }
+                function moveTo(cx, cy) {
+                    if (!mode) return;
+                    var p = toPx(cx, cy);
+                    var dx = p.x - startX, dy = p.y - startY;
+                    if (mode === 'move') {
+                        box.left = startBox.left + dx;
+                        box.top = startBox.top + dy;
+                    } else {
+                        box.width = Math.max(6, startBox.width + dx);
+                        box.height = Math.max(6, startBox.height + dy);
+                    }
+                    render();
+                    showValues();
+                }
+
+                boxEl.addEventListener('mousedown', function (e) { start(e.clientX, e.clientY, 'move'); e.preventDefault(); });
+                handleEl.addEventListener('mousedown', function (e) { start(e.clientX, e.clientY, 'resize'); e.stopPropagation(); e.preventDefault(); });
+                window.addEventListener('mousemove', function (e) { moveTo(e.clientX, e.clientY); });
+                window.addEventListener('mouseup', function () { mode = null; });
+                boxEl.addEventListener('touchstart', function (e) { var t = e.touches[0]; start(t.clientX, t.clientY, 'move'); }, { passive: true });
+                handleEl.addEventListener('touchstart', function (e) { var t = e.touches[0]; start(t.clientX, t.clientY, 'resize'); }, { passive: true });
+                window.addEventListener('touchmove', function (e) { var t = e.touches[0]; if (t) moveTo(t.clientX, t.clientY); }, { passive: true });
+                window.addEventListener('touchend', function () { mode = null; });
+
+                render();
+                showValues();
             }
 
             function closeAll() {
@@ -682,6 +800,8 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
             document.querySelectorAll('.watch[data-video]').forEach(function (element) {
                 element.addEventListener('click', function () {
                     pendingId = element.getAttribute('data-video');
+                    pendingProvider = element.getAttribute('data-provider') || 'dazn';
+                    pendingTitle = element.getAttribute('data-title') || '';
                     pendingScoreStart = parseInt(element.getAttribute('data-score-start'), 10);
                     if (isNaN(pendingScoreStart)) pendingScoreStart = -1;
                     pendingScoreLen = parseInt(element.getAttribute('data-score-len'), 10) || 0;
@@ -718,6 +838,17 @@ const server = http.createServer(async (req, res) => {
         if (EMBLEM_SVG) {
             res.writeHead(200, { 'Content-Type': 'image/svg+xml; charset=utf-8', 'Cache-Control': 'public, max-age=86400' });
             res.end(EMBLEM_SVG);
+        } else {
+            res.writeHead(404);
+            res.end();
+        }
+        return;
+    }
+
+    if (req.url === '/replay-logo') {
+        if (REPLAY_LOGO) {
+            res.writeHead(200, { 'Content-Type': REPLAY_LOGO.type, 'Cache-Control': 'public, max-age=86400' });
+            res.end(REPLAY_LOGO.data);
         } else {
             res.writeHead(404);
             res.end();
