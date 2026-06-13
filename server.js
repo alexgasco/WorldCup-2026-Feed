@@ -143,6 +143,10 @@ const COUNTRIES = [
     ['Perú', 'pe'], ['Polonia', 'pl'], ['Qatar', 'qa'],
     ['Catar', 'qa'], ['Suecia', 'se'], ['Suiza', 'ch'],
     ['Haití', 'ht'], ['Curazao', 'cw'], ['Zambia', 'zm'],
+    // Alias usados por las cadenas (mismo país, otra forma de escribirlo)
+    ['República de Corea', 'kr'], ['Corea', 'kr'], ['Chequia', 'cz'],
+    ['Holanda', 'nl'], ['Curaçao', 'cw'], ['Arabia Saudita', 'sa'],
+    ['República Democrática del Congo', 'cd'], ['Bosnia', 'ba'],
 ];
 
 const stripAccents = (text) =>
@@ -207,7 +211,8 @@ const buildVideoEntry = (item, source) => {
         views = '';
     }
     return {
-        source, teams, link: item.link, thumbnail, views,
+        source, teams, link: item.link, videoId: (item.id || '').split(':').pop(),
+        thumbnail, views,
         date: new Date(item.isoDate),
         matchKey: matchKeyOf(teams),
     };
@@ -222,7 +227,7 @@ const flagImg = (team) =>
 const renderButton = (entry, symbolId, brandClass) => {
     const logo = `<svg class="brand ${brandClass}" aria-hidden="true"><use href="#${symbolId}"></use></svg>`;
     if (entry) {
-        return `<button class="watch ${brandClass}" data-href="${escapeHtml(entry.link)}">${logo}<span class="cap">Ver resumen ▶</span></button>`;
+        return `<button class="watch ${brandClass}" data-video="${escapeHtml(entry.videoId)}">${logo}<span class="cap">Ver resumen ▶</span></button>`;
     }
     return `<button class="watch ${brandClass} disabled" disabled>${logo}<span class="cap">No disponible</span></button>`;
 };
@@ -233,9 +238,16 @@ const renderMatchCard = (match) => {
     const views = reference ? formatViews(reference.views) : '';
     const thumbnail = reference && reference.thumbnail ? reference.thumbnail : '';
 
+    // Un partido se considera finalizado ~2 horas después de su inicio.
+    const finished = match.sortTime instanceof Date && (match.sortTime.getTime() + 2 * 60 * 60 * 1000) < Date.now();
+    const statusBadge = finished ? '<span class="status">✓ Finalizado</span>' : '';
+    const timeBadge = match.time ? `<span class="kick">🕒 ${match.time}</span>` : '';
+    const meta = statusBadge + timeBadge;
+    const soonBadge = (!thumbnail && !finished) ? '<span class="soon">Próximamente</span>' : '';
+
     const banner = thumbnail
-        ? `<div class="banner" style="background-image:url('${escapeHtml(thumbnail)}')">${match.time ? `<span class="kick">🕒 ${match.time}</span>` : ''}</div>`
-        : `<div class="banner banner-empty">${match.time ? `<span class="kick">🕒 ${match.time}</span>` : ''}<span class="soon">Próximamente</span></div>`;
+        ? `<div class="banner" style="background-image:url('${escapeHtml(thumbnail)}')">${meta}</div>`
+        : `<div class="banner banner-empty">${meta}${soonBadge}</div>`;
 
     return `
         <article class="card">
@@ -247,10 +259,9 @@ const renderMatchCard = (match) => {
                     <div class="team">${flagImg(away)}<span class="name">${escapeHtml(away.name)}</span></div>
                 </div>
                 ${views ? `<div class="views">👁️ ${views}</div>` : ''}
-                ${reference ? '<div class="rotate-hint">📱 Gira el móvil en horizontal para ver el resumen</div>' : ''}
-                <div class="buttons${reference ? ' gated' : ''}">
-                    ${renderButton(match.rtve, 'logo-rtve', 'rtve')}
+                <div class="buttons">
                     ${renderButton(match.dazn, 'logo-dazn', 'dazn')}
+                    ${renderButton(match.rtve, 'logo-rtve', 'rtve')}
                 </div>
             </div>
         </article>`;
@@ -378,10 +389,8 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
         header .host { margin-top: 8px; font-size: .82rem; font-weight: 800; letter-spacing: 2px; }
         header .host .ca { color: var(--ca); } header .host .us { color: var(--us); } header .host .mx { color: var(--mx); }
         header .host span { margin: 0 3px; color: #c2c7d6; }
-        header .badge {
-            display: inline-block; margin-top: 14px; padding: 5px 14px; border-radius: 999px;
-            background: rgba(0,154,68,.10); color: var(--mx); font-size: .78rem; font-weight: 700;
-            border: 1px solid rgba(0,154,68,.30);
+        header .note {
+            margin: 14px auto 0; max-width: 380px; font-size: .82rem; color: var(--muted); line-height: 1.45;
         }
         .day { max-width: 540px; margin: 0 auto; }
         .day h2 {
@@ -403,10 +412,11 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
         .banner::after { content: ""; position: absolute; inset: 0; backdrop-filter: blur(16px); background: rgba(20,24,40,.28); }
         .banner-empty { background: linear-gradient(110deg, var(--ca), var(--us) 55%, var(--mx)); }
         .banner-empty::after { display: none; }
-        .banner .kick, .banner .soon {
+        .banner .kick, .banner .soon, .banner .status {
             position: relative; z-index: 1; color: #fff; font-weight: 700; font-size: .82rem;
             background: rgba(0,0,0,.35); padding: 4px 12px; border-radius: 999px;
         }
+        .banner .status { background: rgba(0,154,68,.92); }
         .body { padding: 16px 16px 18px; }
         .teams { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
         .team { display: flex; flex-direction: column; align-items: center; flex: 1; gap: 8px; }
@@ -418,15 +428,41 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
         .vs { font-size: .82rem; font-weight: 900; color: var(--gold); padding: 0 6px; letter-spacing: 1px; }
         .views { text-align: center; color: var(--muted); font-size: .76rem; margin-top: 12px; }
         .buttons { display: flex; gap: 10px; margin-top: 16px; }
-        .rotate-hint {
-            display: none; align-items: center; justify-content: center; gap: 8px; margin-top: 16px;
-            padding: 12px; border: 1.5px dashed var(--line); border-radius: 14px;
-            color: var(--muted); font-size: .82rem; font-weight: 700; text-align: center; line-height: 1.3;
+        #videoOverlay {
+            display: none; position: fixed; inset: 0; z-index: 9999; align-items: center; justify-content: center;
+            padding: 24px; background: rgba(15,20,48,.55); backdrop-filter: blur(3px);
         }
-        @media (orientation: portrait) {
-            .buttons.gated { display: none; }
-            .rotate-hint { display: flex; }
+        #videoOverlay.show { display: flex; }
+        #videoOverlay .box {
+            background: #fff; border-radius: 20px; padding: 28px 24px; max-width: 360px; width: 100%;
+            text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.35);
         }
+        #videoOverlay .icon { font-size: 3rem; line-height: 1; }
+        #videoOverlay .title { font-size: 1.2rem; font-weight: 800; margin: 14px 0 6px; }
+        #videoOverlay .sub { font-size: .88rem; color: var(--muted); margin: 0 0 22px; line-height: 1.4; }
+        #videoOverlay .go {
+            width: 100%; border: none; border-radius: 12px; padding: 14px; font-size: 1rem; font-weight: 800;
+            background: var(--mx); color: #fff; cursor: pointer; transition: background .2s;
+        }
+        #videoOverlay .go.disabled { background: #c4c9d6; cursor: not-allowed; }
+        #videoOverlay .close {
+            margin-top: 14px; background: none; border: none; color: var(--muted);
+            font-size: .9rem; text-decoration: underline; cursor: pointer;
+        }
+        #videoOverlay .player { display: none; width: 100%; max-width: 1000px; }
+        #videoOverlay.playing { background: rgba(0,0,0,.94); padding: 12px; }
+        #videoOverlay.playing .box { display: none; }
+        #videoOverlay.playing .player { display: block; }
+        .player .player-close {
+            display: block; margin: 0 0 10px auto; background: rgba(255,255,255,.16); color: #fff;
+            border: none; border-radius: 8px; padding: 8px 14px; font-weight: 700; cursor: pointer;
+        }
+        .player .frame {
+            position: relative; width: 100%; aspect-ratio: 16 / 9; background: #000;
+            border-radius: 10px; overflow: hidden;
+        }
+        .player .frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+        .player .yt-fallback { display: block; margin-top: 12px; color: #cdd3e6; font-size: .8rem; text-decoration: underline; text-align: center; }
         .watch {
             flex: 1; display: flex; flex-direction: column; align-items: center; gap: 7px;
             border: 1.5px solid var(--line); border-radius: 14px; padding: 12px 8px; cursor: pointer;
@@ -464,7 +500,7 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
         <img class="emblem" src="/emblem.svg" alt="FIFA World Cup 2026" width="63" height="98">
         <h1>World Cup 2026</h1>
         <div class="host"><span class="ca">CANADÁ</span><span>·</span><span class="us">USA</span><span>·</span><span class="mx">MÉXICO</span></div>
-        <div class="badge">🙈 Resultados ocultos · RTVE y DAZN</div>
+        <div class="note">Resúmenes de los partidos sin spoilers (sin mostrar el resultado). Narración en español (DAZN o RTVE).</div>
     </header>
 
     <main><!--CONTENT--></main>
@@ -472,13 +508,82 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
     <div class="dots"></div>
     <footer>Sin marcadores: las miniaturas van difuminadas para no desvelar el resultado.</footer>
 
+    <div id="videoOverlay">
+        <div class="box">
+            <div class="icon">📱</div>
+            <p class="title">Gira el móvil en horizontal</p>
+            <p class="sub">Para ver el resumen, pon el móvil en posición horizontal y se activará el botón.</p>
+            <button class="go disabled" id="videoGo" disabled>Gira el móvil para activar</button>
+            <button class="close" id="videoClose">Cancelar</button>
+        </div>
+        <div class="player">
+            <button class="player-close" id="playerClose">✕ Cerrar</button>
+            <div class="frame" id="videoFrame"></div>
+            <a class="yt-fallback" id="ytFallback" target="_blank" rel="noopener">¿No se ve el vídeo? Ábrelo en YouTube ↗</a>
+        </div>
+    </div>
+
     <script>
         (function () {
-            document.querySelectorAll('.watch[data-href]').forEach(function (element) {
+            var overlay = document.getElementById('videoOverlay');
+            var goButton = document.getElementById('videoGo');
+            var closeButton = document.getElementById('videoClose');
+            var playerClose = document.getElementById('playerClose');
+            var frame = document.getElementById('videoFrame');
+            var fallback = document.getElementById('ytFallback');
+            var pendingId = null;
+            var landscape = window.matchMedia('(orientation: landscape)');
+
+            function sync() {
+                if (landscape.matches) {
+                    goButton.disabled = false;
+                    goButton.classList.remove('disabled');
+                    goButton.textContent = 'Ver el vídeo ▶';
+                } else {
+                    goButton.disabled = true;
+                    goButton.classList.add('disabled');
+                    goButton.textContent = 'Gira el móvil para activar';
+                }
+            }
+            if (landscape.addEventListener) {
+                landscape.addEventListener('change', sync);
+            } else {
+                window.addEventListener('orientationchange', sync);
+            }
+            window.addEventListener('resize', sync);
+
+            function closeAll() {
+                overlay.classList.remove('show');
+                overlay.classList.remove('playing');
+                frame.innerHTML = '';
+            }
+
+            function goFullscreen() {
+                var request = frame.requestFullscreen || frame.webkitRequestFullscreen || frame.msRequestFullscreen;
+                if (request) { try { request.call(frame); } catch (error) { /* not supported */ } }
+            }
+
+            document.querySelectorAll('.watch[data-video]').forEach(function (element) {
                 element.addEventListener('click', function () {
-                    window.open(element.getAttribute('data-href'), '_blank');
+                    pendingId = element.getAttribute('data-video');
+                    overlay.classList.remove('playing');
+                    sync();
+                    overlay.classList.add('show');
                 });
             });
+
+            goButton.addEventListener('click', function () {
+                if (goButton.disabled || !pendingId) return;
+                var id = encodeURIComponent(pendingId);
+                frame.innerHTML = '<iframe src="https://www.youtube-nocookie.com/embed/' + id +
+                    '?autoplay=1&rel=0&modestbranding=1&playsinline=1" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>';
+                fallback.href = 'https://www.youtube.com/watch?v=' + id;
+                overlay.classList.add('playing');
+                goFullscreen();
+            });
+
+            closeButton.addEventListener('click', closeAll);
+            playerClose.addEventListener('click', closeAll);
         })();
     </script>
 </body>
