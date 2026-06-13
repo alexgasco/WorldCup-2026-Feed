@@ -30,6 +30,21 @@ try {
     REPLAY_LOGO = null;
 }
 
+// Icono del balón del Mundial para la pestaña del navegador (favicon).
+// Coloca el archivo en la carpeta (ball.png / ball.svg / ball.jpg). Si no está, se usa el emblema oficial.
+let BALL_ICON = null;
+try {
+    if (fs.existsSync(path.join(__dirname, 'ball.png'))) {
+        BALL_ICON = { data: fs.readFileSync(path.join(__dirname, 'ball.png')), type: 'image/png' };
+    } else if (fs.existsSync(path.join(__dirname, 'ball.svg'))) {
+        BALL_ICON = { data: fs.readFileSync(path.join(__dirname, 'ball.svg')), type: 'image/svg+xml' };
+    } else if (fs.existsSync(path.join(__dirname, 'ball.jpg'))) {
+        BALL_ICON = { data: fs.readFileSync(path.join(__dirname, 'ball.jpg')), type: 'image/jpeg' };
+    }
+} catch (error) {
+    BALL_ICON = null;
+}
+
 const daznPlaylistId = 'PL8vYHFKv-YcqjDmrVZm-AghTsjCaMNNwi';
 const tvePlaylistId = 'PLhEMBJiEYKv5FvOHB49kE5-dCMHzZHuKa';
 const replayPlaylistId = 'PLPPlHBqoxcoM';
@@ -399,6 +414,7 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>World Cup 2026 sin Spoilers</title>
+    <link rel="icon" href="/favicon.ico">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;900&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
@@ -723,8 +739,11 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
                 // El botón de pantalla completa de YouTube SÍ se muestra. Cuando se pulsa,
                 // YouTube pone a pantalla completa solo su iframe (y el recuadro quedaría fuera);
                 // lo detectamos abajo y redirigimos la pantalla completa a nuestro contenedor (iframe + recuadro).
+                // hl=es y cc_lang_pref=es: forzar el idioma del reproductor a español para que YouTube
+                // muestre el TÍTULO en español (el mismo que leemos del RSS y que medimos). Si no,
+                // mostraría a veces el título en inglés y el recuadro no cuadraría.
                 var html = '<iframe src="https://www.youtube-nocookie.com/embed/' + id +
-                    '?autoplay=' + autoplay + '&rel=0&modestbranding=1&playsinline=1" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>';
+                    '?autoplay=' + autoplay + '&rel=0&modestbranding=1&playsinline=1&hl=es&cc_lang_pref=es" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>';
                 if (!calibrating) {
                     html += '<div class="load-cover" id="loadCover">Cargando resumen…</div>';
                 }
@@ -854,9 +873,15 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
 </html>`;
 
 const server = http.createServer(async (req, res) => {
-    if (req.url === '/favicon.ico') {
-        res.writeHead(204);
-        res.end();
+    if (req.url === '/favicon.ico' || req.url === '/favicon') {
+        const icon = BALL_ICON || (EMBLEM_SVG ? { data: EMBLEM_SVG, type: 'image/svg+xml; charset=utf-8' } : null);
+        if (icon) {
+            res.writeHead(200, { 'Content-Type': icon.type, 'Cache-Control': 'public, max-age=86400' });
+            res.end(icon.data);
+        } else {
+            res.writeHead(204);
+            res.end();
+        }
         return;
     }
 
