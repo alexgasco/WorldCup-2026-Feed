@@ -705,8 +705,12 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
             function boxStyle() {
                 var c = CAL();
                 // Posición = inicio del título + ancho REAL del texto antes del número.
-                var left = c.padLeft + measureText(titleBefore(), c.fontSize);
-                var width = measureText(titleScore(), c.fontSize);
+                // Margen de seguridad a cada lado (≈ proporción del tamaño de letra) para absorber
+                // el pequeño error de medición entre títulos distintos. Antes/después del número
+                // casi siempre hay un espacio, así que tapar unos píxeles de más no molesta.
+                var margin = c.fontSize * 0.35;
+                var left = c.padLeft + measureText(titleBefore(), c.fontSize) - margin;
+                var width = measureText(titleScore(), c.fontSize) + margin * 2;
                 return 'left:' + left + 'px;top:' + c.top + 'px;width:' + width + 'px;height:' + c.height + 'px';
             }
 
