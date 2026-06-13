@@ -252,7 +252,7 @@ const renderButton = (entry, symbolId, brandClass, textLogo) => {
         logo = `<span class="brand brand-text ${brandClass}">${textLogo}</span>`;
     }
     const audio = brandClass === 'replay'
-        ? `<span class="audio" title="Sin narración">🔇</span>`
+        ? `<span class="audio" title="Sin narración"><span class="nospeak">🗣️</span></span>`
         : `<span class="audio" title="Narración en español de España">🗣️<img class="miniflag" src="https://flagcdn.com/w20/es.png" width="16" height="11" alt="España"></span>`;
     if (entry) {
         return `<button class="watch ${brandClass}" data-provider="${brandClass}" data-video="${escapeHtml(entry.videoId)}" data-title="${escapeHtml(entry.title)}" data-score-start="${entry.scoreStart}" data-score-len="${entry.scoreLen}">${logo}<span class="cap">Ver ▶</span>${audio}</button>`;
@@ -547,6 +547,11 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
         .watch .cap { font-size: .7rem; font-weight: 700; }
         .watch .audio { display: flex; align-items: center; justify-content: center; gap: 3px; font-size: .72rem; margin-top: 3px; line-height: 1; }
         .watch .miniflag { width: 16px; height: 11px; border-radius: 2px; box-shadow: 0 0 0 .5px rgba(0,0,0,.15); }
+        .watch .audio .nospeak { position: relative; display: inline-block; line-height: 1; }
+        .watch .audio .nospeak::after {
+            content: ''; position: absolute; top: 50%; left: 50%; width: 145%; height: 2.5px;
+            background: #e0231a; border-radius: 2px; transform: translate(-50%, -50%) rotate(-45deg);
+        }
         .watch.rtve { box-shadow: inset 0 0 0 0 var(--rtve); }
         .watch.rtve .cap { color: var(--rtve); }
         .watch.rtve:not(.disabled) { border-color: rgba(230,81,31,.45); background: #fff7f2; }
@@ -637,14 +642,14 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
                 },
                 mobile: {
                     portrait: {
-                        dazn:   { padLeft: 12, fontSize: 11, top: 6, height: 13 },
-                        rtve:   { padLeft: 12, fontSize: 11, top: 6, height: 13 },
-                        replay: { padLeft: 12, fontSize: 11, top: 6, height: 13 }
+                        dazn:   { padLeft: 106, fontSize: 16.1, top: 57, height: 26 },
+                        rtve:   { padLeft: 76, fontSize: 18.1, top: 59, height: 26 },
+                        replay: { padLeft: 71, fontSize: 19.2, top: 59, height: 25 }
                     },
                     landscape: {
-                        dazn:   { padLeft: 40, fontSize: 18, top: 10, height: 20 },
-                        rtve:   { padLeft: 40, fontSize: 18, top: 10, height: 20 },
-                        replay: { padLeft: 40, fontSize: 18, top: 10, height: 20 }
+                        dazn:   { padLeft: 84, fontSize: 19.6, top: 13, height: 23 },
+                        rtve:   { padLeft: 58, fontSize: 22.4, top: 12, height: 20 },
+                        replay: { padLeft: 75, fontSize: 20.2, top: 12, height: 22 }
                     }
                 }
             };
