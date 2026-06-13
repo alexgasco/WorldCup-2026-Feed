@@ -513,15 +513,17 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
             -webkit-backdrop-filter: blur(7px) saturate(1.1);
         }
         .player .frame .cal-catch { position: absolute; inset: 0; z-index: 5; }
-        .player .frame .score-box.cal { pointer-events: auto; cursor: move; z-index: 6; }
+        .player .frame .score-box.cal { pointer-events: auto; cursor: move; z-index: 6; touch-action: none; }
         .player .frame .rs-handle {
-            position: absolute; right: -7px; bottom: -7px; width: 18px; height: 18px; z-index: 7;
-            background: #fff; border: 2px solid #2aa7ff; border-radius: 50%; cursor: nwse-resize; pointer-events: auto;
+            position: absolute; right: -16px; bottom: -16px; width: 32px; height: 32px; z-index: 7;
+            background: #fff; border: 3px solid #2aa7ff; border-radius: 50%; cursor: nwse-resize; pointer-events: auto;
+            touch-action: none;
         }
         .player .frame .cal-readout {
             position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 8;
             background: rgba(0,0,0,.82); color: #fff; padding: 7px 14px; border-radius: 8px;
-            font-size: .8rem; font-weight: 700; pointer-events: none; white-space: nowrap;
+            font-size: .78rem; font-weight: 700; pointer-events: none;
+            white-space: normal; max-width: 92vw; text-align: center; line-height: 1.35;
         }
         .player .frame .load-cover {
             position: absolute; inset: 0; z-index: 3; display: flex; align-items: center; justify-content: center;
@@ -802,8 +804,9 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
                 window.addEventListener('mousemove', function (e) { moveTo(e.clientX, e.clientY); });
                 window.addEventListener('mouseup', function () { mode = null; });
                 boxEl.addEventListener('touchstart', function (e) { var t = e.touches[0]; start(t.clientX, t.clientY, 'move'); }, { passive: true });
-                handleEl.addEventListener('touchstart', function (e) { var t = e.touches[0]; start(t.clientX, t.clientY, 'resize'); }, { passive: true });
-                window.addEventListener('touchmove', function (e) { var t = e.touches[0]; if (t) moveTo(t.clientX, t.clientY); }, { passive: true });
+                // stopPropagation: si no, el toque en el tirador "sube" al recuadro y activa 'move' en vez de 'resize'.
+                handleEl.addEventListener('touchstart', function (e) { e.stopPropagation(); var t = e.touches[0]; start(t.clientX, t.clientY, 'resize'); }, { passive: true });
+                window.addEventListener('touchmove', function (e) { if (mode) { e.preventDefault(); } var t = e.touches[0]; if (t) moveTo(t.clientX, t.clientY); }, { passive: false });
                 window.addEventListener('touchend', function () { mode = null; });
 
                 render();
