@@ -71,12 +71,12 @@ const FIXTURES = [
     { date: '2026-06-12', time: '04:00', home: 'Corea del Sur', away: 'República Checa' },
     { date: '2026-06-12', time: '21:00', home: 'Canadá', away: 'Bosnia y Herzegovina' },
     { date: '2026-06-13', time: '03:00', home: 'Estados Unidos', away: 'Paraguay' },
-    { date: '2026-06-14', time: '06:00', home: 'Australia', away: 'Turquía' },
     { date: '2026-06-13', time: '21:00', home: 'Catar', away: 'Suiza' },
     { date: '2026-06-14', time: '00:00', home: 'Brasil', away: 'Marruecos' },
     { date: '2026-06-14', time: '03:00', home: 'Haití', away: 'Escocia' },
+    { date: '2026-06-14', time: '06:00', home: 'Australia', away: 'Turquía' },
     { date: '2026-06-14', time: '19:00', home: 'Alemania', away: 'Curazao' },
-    { date: '2026-06-15', time: '00:00', home: 'Países Bajos', away: 'Japón' },
+    { date: '2026-06-14', time: '22:00', home: 'Países Bajos', away: 'Japón' },
     { date: '2026-06-15', time: '01:00', home: 'Costa de Marfil', away: 'Ecuador' },
     { date: '2026-06-15', time: '04:00', home: 'Suecia', away: 'Túnez' },
     { date: '2026-06-15', time: '18:00', home: 'España', away: 'Cabo Verde' },
@@ -96,17 +96,17 @@ const FIXTURES = [
     { date: '2026-06-18', time: '21:00', home: 'Suiza', away: 'Bosnia y Herzegovina' },
     { date: '2026-06-19', time: '00:00', home: 'Canadá', away: 'Catar' },
     { date: '2026-06-19', time: '03:00', home: 'México', away: 'Corea del Sur' },
-    { date: '2026-06-19', time: '06:00', home: 'Turquía', away: 'Paraguay' },
     { date: '2026-06-19', time: '21:00', home: 'Estados Unidos', away: 'Australia' },
-    { date: '2026-06-20', time: '00:00', home: 'Brasil', away: 'Haití' },
-    { date: '2026-06-20', time: '03:00', home: 'Escocia', away: 'Marruecos' },
-    { date: '2026-06-20', time: '06:00', home: 'Túnez', away: 'Japón' },
+    { date: '2026-06-20', time: '00:00', home: 'Escocia', away: 'Marruecos' },
+    { date: '2026-06-20', time: '02:30', home: 'Brasil', away: 'Haití' },
+    { date: '2026-06-20', time: '05:00', home: 'Turquía', away: 'Paraguay' },
     { date: '2026-06-20', time: '19:00', home: 'Países Bajos', away: 'Suecia' },
-    { date: '2026-06-21', time: '00:00', home: 'Alemania', away: 'Costa de Marfil' },
+    { date: '2026-06-20', time: '22:00', home: 'Alemania', away: 'Costa de Marfil' },
     { date: '2026-06-21', time: '02:00', home: 'Ecuador', away: 'Curazao' },
+    { date: '2026-06-21', time: '06:00', home: 'Túnez', away: 'Japón' },
     { date: '2026-06-21', time: '18:00', home: 'España', away: 'Arabia Saudí' },
+    { date: '2026-06-21', time: '21:00', home: 'Bélgica', away: 'Irán' },
     { date: '2026-06-22', time: '00:00', home: 'Uruguay', away: 'Cabo Verde' },
-    { date: '2026-06-22', time: '01:00', home: 'Bélgica', away: 'Irán' },
     { date: '2026-06-22', time: '03:00', home: 'Nueva Zelanda', away: 'Egipto' },
     { date: '2026-06-22', time: '19:00', home: 'Argentina', away: 'Austria' },
     { date: '2026-06-22', time: '23:00', home: 'Francia', away: 'Irak' },
@@ -119,27 +119,27 @@ const FIXTURES = [
     // --- Jornada 3 ---
     { date: '2026-06-24', time: '21:00', home: 'Suiza', away: 'Canadá' },
     { date: '2026-06-24', time: '21:00', home: 'Bosnia y Herzegovina', away: 'Catar' },
-    { date: '2026-06-25', time: '03:00', home: 'República Checa', away: 'México' },
+    { date: '2026-06-25', time: '00:00', home: 'Escocia', away: 'Brasil' },
+    { date: '2026-06-25', time: '00:00', home: 'Marruecos', away: 'Haití' },
     { date: '2026-06-25', time: '03:00', home: 'Sudáfrica', away: 'Corea del Sur' },
-    { date: '2026-06-26', time: '00:00', home: 'Escocia', away: 'Brasil' },
-    { date: '2026-06-26', time: '00:00', home: 'Marruecos', away: 'Haití' },
-    { date: '2026-06-26', time: '00:00', home: 'Ecuador', away: 'Alemania' },
-    { date: '2026-06-26', time: '00:00', home: 'Curazao', away: 'Costa de Marfil' },
+    { date: '2026-06-25', time: '03:00', home: 'República Checa', away: 'México' },
+    { date: '2026-06-25', time: '22:00', home: 'Ecuador', away: 'Alemania' },
+    { date: '2026-06-25', time: '22:00', home: 'Curazao', away: 'Costa de Marfil' },
     { date: '2026-06-26', time: '01:00', home: 'Túnez', away: 'Países Bajos' },
     { date: '2026-06-26', time: '01:00', home: 'Japón', away: 'Suecia' },
     { date: '2026-06-26', time: '04:00', home: 'Turquía', away: 'Estados Unidos' },
     { date: '2026-06-26', time: '04:00', home: 'Paraguay', away: 'Australia' },
-    { date: '2026-06-26', time: '21:00', home: 'Noruega', away: 'Francia' },
     { date: '2026-06-26', time: '21:00', home: 'Senegal', away: 'Irak' },
+    { date: '2026-06-26', time: '21:00', home: 'Noruega', away: 'Francia' },
     { date: '2026-06-27', time: '02:00', home: 'Uruguay', away: 'España' },
     { date: '2026-06-27', time: '02:00', home: 'Cabo Verde', away: 'Arabia Saudí' },
     { date: '2026-06-27', time: '05:00', home: 'Nueva Zelanda', away: 'Bélgica' },
     { date: '2026-06-27', time: '05:00', home: 'Egipto', away: 'Irán' },
     { date: '2026-06-27', time: '23:00', home: 'Panamá', away: 'Inglaterra' },
     { date: '2026-06-27', time: '23:00', home: 'Croacia', away: 'Ghana' },
-    { date: '2026-06-28', time: '01:30', home: 'Portugal', away: 'Colombia' },
     { date: '2026-06-28', time: '01:30', home: 'RD Congo', away: 'Uzbekistán' },
-    { date: '2026-06-28', time: '04:00', home: 'Argentina', away: 'Jordania' },
+    { date: '2026-06-28', time: '01:30', home: 'Colombia', away: 'Portugal' },
+    { date: '2026-06-28', time: '04:00', home: 'Jordania', away: 'Argentina' },
     { date: '2026-06-28', time: '04:00', home: 'Argelia', away: 'Austria' },
 ];
 
@@ -360,7 +360,7 @@ const buildPage = (daznFeed, tveFeed, replayFeed) => {
 
     const renderDay = (dateKey, heading) => {
         const items = days.get(dateKey).sort((a, b) => a.sortTime - b.sortTime);
-        return `<section class="day"><h2>${heading}</h2>${items.map(renderMatchCard).join('')}</section>`;
+        return `<section class="day"><h2>${heading}</h2><div class="cards">${items.map(renderMatchCard).join('')}</div></section>`;
     };
 
     // Main view: today and all previous days (most recent first).
@@ -457,16 +457,18 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
             font-size: .95rem; color: var(--us); text-transform: uppercase; letter-spacing: 1.2px;
             margin: 26px 0 12px; padding-left: 10px; border-left: 4px solid var(--gold);
         }
+        /* Rejilla de tarjetas: 1 columna (móvil por defecto). En PC pasa a 2-3 columnas (más abajo). */
+        .cards { display: grid; grid-template-columns: 1fr; gap: 10px; align-items: start; }
         .dots {
             height: 8px; border-radius: 999px; max-width: 540px; margin: 32px auto 0; opacity: .9;
             background: repeating-linear-gradient(90deg, var(--ca) 0 14px, var(--us) 14px 28px, var(--mx) 28px 42px);
         }
         .card {
             background: var(--card); border: 1px solid var(--line); border-radius: 18px;
-            overflow: hidden; margin-bottom: 14px; box-shadow: 0 8px 24px rgba(20,30,60,.07);
+            overflow: hidden; box-shadow: 0 8px 24px rgba(20,30,60,.07);
         }
         .banner {
-            position: relative; height: 70px; background-size: cover; background-position: center;
+            position: relative; height: 50px; background-size: cover; background-position: center;
             display: flex; align-items: center; justify-content: center; gap: 10px;
         }
         .banner::after { content: ""; position: absolute; inset: 0; backdrop-filter: blur(16px); background: rgba(20,24,40,.28); }
@@ -477,17 +479,17 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
             background: rgba(0,0,0,.35); padding: 4px 12px; border-radius: 999px;
         }
         .banner .status { background: rgba(0,154,68,.92); }
-        .body { padding: 16px 16px 18px; }
+        .body { padding: 10px 14px 12px; }
         .teams { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-        .team { display: flex; flex-direction: column; align-items: center; flex: 1; gap: 8px; }
+        .team { display: flex; flex-direction: column; align-items: center; flex: 1; gap: 5px; }
         .flag {
-            width: 44px; height: 33px; object-fit: cover; border-radius: 5px;
+            width: 40px; height: 30px; object-fit: cover; border-radius: 5px;
             box-shadow: 0 1px 4px rgba(0,0,0,.18); background: #f0f0f0;
         }
         .team .name { font-size: .92rem; font-weight: 700; text-align: center; line-height: 1.2; }
         .vs { font-size: .82rem; font-weight: 900; color: var(--gold); padding: 0 6px; letter-spacing: 1px; }
-        .views { text-align: center; color: var(--muted); font-size: .76rem; margin-top: 12px; }
-        .buttons { display: flex; gap: 8px; margin-top: 16px; }
+        .views { text-align: center; color: var(--muted); font-size: .76rem; margin-top: 8px; }
+        .buttons { display: flex; gap: 8px; margin-top: 10px; }
         #videoOverlay {
             display: none; position: fixed; inset: 0; z-index: 9999; align-items: center; justify-content: center;
             padding: 24px; background: rgba(15,20,48,.55); backdrop-filter: blur(3px);
@@ -551,8 +553,8 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
         .player .frame .load-cover.hidden { opacity: 0; pointer-events: none; }
         .player .yt-fallback { display: block; margin-top: 12px; color: #cdd3e6; font-size: .8rem; text-decoration: underline; text-align: center; }
         .watch {
-            flex: 1; display: flex; flex-direction: column; align-items: center; gap: 7px;
-            border: 1.5px solid var(--line); border-radius: 14px; padding: 12px 8px; cursor: pointer;
+            flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px;
+            border: 1.5px solid var(--line); border-radius: 14px; padding: 8px 8px; cursor: pointer;
             background: #fff; transition: transform .08s, box-shadow .15s;
         }
         .watch:active { transform: scale(.97); }
@@ -590,6 +592,17 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
         .calendar[open] > summary { margin-bottom: 4px; }
         .empty { text-align: center; color: var(--muted); margin-top: 40px; }
         footer { text-align: center; color: var(--muted); font-size: .72rem; margin-top: 36px; }
+
+        /* === SOLO PC === Pantallas anchas: ensanchar el contenedor y mostrar varias tarjetas por fila.
+           En el móvil no se aplica nada de esto (sigue 1 tarjeta por fila). */
+        @media (min-width: 760px) {
+            .day, .calendar, .dots { max-width: 940px; }
+            .cards { grid-template-columns: repeat(2, 1fr); gap: 14px; }
+        }
+        @media (min-width: 1180px) {
+            .day, .calendar, .dots { max-width: 1180px; }
+            .cards { grid-template-columns: repeat(3, 1fr); }
+        }
     </style>
 </head>
 <body>
