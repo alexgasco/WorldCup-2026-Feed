@@ -25,6 +25,10 @@ try {
         REPLAY_LOGO = { data: fs.readFileSync(path.join(__dirname, 'replay-logo.png')), type: 'image/png' };
     } else if (fs.existsSync(path.join(__dirname, 'replay-logo.svg'))) {
         REPLAY_LOGO = { data: fs.readFileSync(path.join(__dirname, 'replay-logo.svg')), type: 'image/svg+xml' };
+    } else if (fs.existsSync(path.join(__dirname, 'replay-logo.jpg'))) {
+        REPLAY_LOGO = { data: fs.readFileSync(path.join(__dirname, 'replay-logo.jpg')), type: 'image/jpeg' };
+    } else if (fs.existsSync(path.join(__dirname, 'replay-logo.jpeg'))) {
+        REPLAY_LOGO = { data: fs.readFileSync(path.join(__dirname, 'replay-logo.jpeg')), type: 'image/jpeg' };
     }
 } catch (error) {
     REPLAY_LOGO = null;
