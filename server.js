@@ -533,9 +533,9 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
         .player .frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
         .player .frame .score-box {
             position: absolute; z-index: 2; pointer-events: none; border-radius: 4px;
-            background: rgba(30,30,35,.28);
-            backdrop-filter: blur(7px) saturate(1.1);
-            -webkit-backdrop-filter: blur(7px) saturate(1.1);
+            background: rgba(28,28,32,.62);
+            backdrop-filter: blur(11px) saturate(1.1);
+            -webkit-backdrop-filter: blur(11px) saturate(1.1);
         }
         .player .frame .cal-catch { position: absolute; inset: 0; z-index: 5; }
         .player .frame .score-box.cal { pointer-events: auto; cursor: move; z-index: 6; touch-action: none; }
@@ -556,6 +556,13 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
             transition: opacity .4s ease;
         }
         .player .frame .load-cover.hidden { opacity: 0; pointer-events: none; }
+        .player .frame .mute-hint {
+            position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 4;
+            background: rgba(0,0,0,.78); color: #fff; font-weight: 700; font-size: .8rem;
+            padding: 7px 14px; border-radius: 999px; pointer-events: none; white-space: nowrap;
+            transition: opacity .5s ease;
+        }
+        .player .frame .mute-hint.hidden { opacity: 0; }
         .player .yt-fallback { display: block; margin-top: 12px; color: #cdd3e6; font-size: .8rem; text-decoration: underline; text-align: center; }
         .watch {
             flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px;
@@ -661,6 +668,9 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
             var coverTimer = null;
             var landscape = window.matchMedia('(orientation: landscape)');
             var isDesktop = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+            // iOS (iPhone/iPad) bloquea el autoplay con sonido: hay que arrancar en silencio.
+            var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
             var calibrating = /[?&]calibrar=1/.test(location.search);
 
             // ---- CALIBRACIÓN del recuadro que tapa el marcador del título ----
@@ -783,8 +793,11 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
                 // mostraría a veces el título en inglés y el recuadro no cuadraría.
                 // fs=0: ocultar el botón de pantalla completa de YouTube. Ese botón solo agranda su iframe
                 // (dejando fuera el recuadro). Usamos nuestro propio botón, que agranda iframe + recuadro juntos.
+                // mute=1 SOLO en iPhone/iPad: iOS no deja autoplay con sonido, así que arranca en silencio
+                // (para saltar la portada con el resultado) y el usuario toca 🔊 para oír la narración.
+                var mute = isIOS ? '&mute=1' : '';
                 var html = '<iframe src="https://www.youtube-nocookie.com/embed/' + id +
-                    '?autoplay=' + autoplay + '&rel=0&modestbranding=1&playsinline=1&hl=es&cc_lang_pref=es&fs=0" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>';
+                    '?autoplay=' + autoplay + mute + '&rel=0&modestbranding=1&playsinline=1&hl=es&cc_lang_pref=es&fs=0" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>';
                 if (!calibrating) {
                     html += '<div class="load-cover" id="loadCover">Cargando resumen…</div>';
                 }
@@ -799,6 +812,9 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
                     // Sin capa bloqueante: el ratón llega al reproductor y mantiene visible el título.
                     html += '<div class="cal-readout" id="calReadout">Arrastra el recuadro · esquina = tamaño</div>';
                 }
+                if (isIOS && !calibrating) {
+                    html += '<div class="mute-hint" id="muteHint">🔇 Toca 🔊 para el sonido</div>';
+                }
                 frame.innerHTML = html;
                 fallback.href = 'https://www.youtube.com/watch?v=' + id;
                 overlay.classList.add('show');
@@ -809,6 +825,12 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
                     var cover = document.getElementById('loadCover');
                     if (cover) cover.classList.add('hidden');
                 }, 1800);
+                if (isIOS && !calibrating) {
+                    setTimeout(function () {
+                        var hint = document.getElementById('muteHint');
+                        if (hint) hint.classList.add('hidden');
+                    }, 4500);
+                }
                 if (calibrating && pendingScoreStart >= 0) setupCalibration();
             }
 
