@@ -194,6 +194,32 @@ const resolveCountry = (name) => {
     return COUNTRY_INDEX.find((country) => country.normalized === wanted) || null;
 };
 
+// Grupos del Mundial (A-L). Cada grupo son los 4 equipos que se enfrentan entre sí
+// en la fase de grupos. Si cambia el sorteo real, edita aquí los equipos de cada letra.
+const GROUPS = {
+    A: ['México', 'Sudáfrica', 'Corea del Sur', 'República Checa'],
+    B: ['Canadá', 'Bosnia y Herzegovina', 'Catar', 'Suiza'],
+    C: ['Brasil', 'Marruecos', 'Haití', 'Escocia'],
+    D: ['Estados Unidos', 'Paraguay', 'Australia', 'Turquía'],
+    E: ['Alemania', 'Curazao', 'Costa de Marfil', 'Ecuador'],
+    F: ['Países Bajos', 'Japón', 'Suecia', 'Túnez'],
+    G: ['Bélgica', 'Egipto', 'Irán', 'Nueva Zelanda'],
+    H: ['España', 'Cabo Verde', 'Arabia Saudí', 'Uruguay'],
+    I: ['Francia', 'Senegal', 'Irak', 'Noruega'],
+    J: ['Argentina', 'Argelia', 'Austria', 'Jordania'],
+    K: ['Portugal', 'RD Congo', 'Uzbekistán', 'Colombia'],
+    L: ['Inglaterra', 'Croacia', 'Ghana', 'Panamá'],
+};
+
+// Índice rápido: código ISO del país -> letra de su grupo.
+const TEAM_GROUP = {};
+Object.keys(GROUPS).forEach((letter) => {
+    GROUPS[letter].forEach((teamName) => {
+        const country = resolveCountry(teamName);
+        if (country) TEAM_GROUP[country.iso] = letter;
+    });
+});
+
 // Finds exactly two distinct national teams inside a video title.
 const findTeams = (title) => {
     let haystack = ' ' + stripAccents(title).replace(/\s+/g, ' ') + ' ';
@@ -220,14 +246,6 @@ const prettyDate = (dateKey) => {
         weekday: 'long', day: 'numeric', month: 'long',
     }).format(date);
     return text.charAt(0).toUpperCase() + text.slice(1);
-};
-
-const formatViews = (views) => {
-    const number = Number(views);
-    if (!Number.isFinite(number) || number <= 0) return '';
-    if (number >= 1000000) return (number / 1000000).toFixed(1).replace('.0', '') + ' M visualizaciones';
-    if (number >= 1000) return Math.round(number / 1000) + ' mil visualizaciones';
-    return number + ' visualizaciones';
 };
 
 // Turns one raw RSS item into a clean object, or null if it is not a match.
@@ -282,8 +300,11 @@ const renderButton = (entry, symbolId, brandClass, textLogo) => {
 const renderMatchCard = (match) => {
     const [home, away] = match.teams;
     const reference = match.rtve || match.dazn || match.replay;
-    const views = reference ? formatViews(reference.views) : '';
     const thumbnail = reference && reference.thumbnail ? reference.thumbnail : '';
+    const phase = match.phase || 'Fase de grupos';
+    // Solo en fase de grupos añadimos "· Grupo X" (en eliminatorias no hay grupo).
+    const groupLetter = phase === 'Fase de grupos' ? (TEAM_GROUP[home.iso] || '') : '';
+    const phaseLabel = groupLetter ? `${phase} · Grupo ${groupLetter}` : phase;
 
     // Un partido se considera finalizado ~2 horas después de su inicio.
     const finished = match.sortTime instanceof Date && (match.sortTime.getTime() + 2 * 60 * 60 * 1000) < Date.now();
@@ -305,7 +326,7 @@ const renderMatchCard = (match) => {
                     <span class="vs">VS</span>
                     <div class="team">${flagImg(away)}<span class="name">${escapeHtml(away.name)}</span></div>
                 </div>
-                ${views ? `<div class="views">👁️ ${views}</div>` : ''}
+                <div class="phase">${escapeHtml(phaseLabel)}</div>
                 <div class="buttons">
                     ${renderButton(match.dazn, 'logo-dazn', 'dazn')}
                     ${renderButton(match.rtve, 'logo-rtve', 'rtve')}
@@ -332,6 +353,7 @@ const buildPage = (daznFeed, tveFeed, replayFeed) => {
             teams, matchKey: key,
             dateKey: fixture.date,
             time: fixture.time || '',
+            phase: fixture.phase || 'Fase de grupos',
             sortTime: new Date(`${fixture.date}T${fixture.time || '00:00'}:00+02:00`),
         });
     });
@@ -344,7 +366,7 @@ const buildPage = (daznFeed, tveFeed, replayFeed) => {
             matches.set(entry.matchKey, {
                 teams: entry.teams, matchKey: entry.matchKey,
                 dateKey: dateKeyMadrid(entry.date),
-                time: '', sortTime: entry.date,
+                time: '', phase: 'Fase de grupos', sortTime: entry.date,
             });
         }
         matches.get(entry.matchKey)[source] = entry;
@@ -501,7 +523,12 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
         }
         .team .name { font-size: .92rem; font-weight: 700; text-align: center; line-height: 1.2; }
         .vs { font-size: .82rem; font-weight: 900; color: var(--gold); padding: 0 6px; letter-spacing: 1px; }
-        .views { text-align: center; color: var(--muted); font-size: .76rem; margin-top: 8px; }
+        .phase {
+            text-align: center; margin: 8px auto 0; width: fit-content;
+            color: var(--us); font-size: .64rem; font-weight: 800; letter-spacing: .8px;
+            text-transform: uppercase; background: #eef2fb; border: 1px solid var(--line);
+            padding: 3px 10px; border-radius: 999px;
+        }
         .buttons { display: flex; gap: 8px; margin-top: 10px; }
         #videoOverlay {
             display: none; position: fixed; inset: 0; z-index: 9999; align-items: center; justify-content: center;
@@ -578,11 +605,13 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
         }
         .player .frame .load-cover.hidden { opacity: 0; pointer-events: none; }
         .player .frame .mute-hint {
-            position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 4;
-            background: rgba(0,0,0,.78); color: #fff; font-weight: 700; font-size: .8rem;
-            padding: 7px 14px; border-radius: 999px; pointer-events: none; white-space: nowrap;
-            transition: opacity .5s ease;
+            position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 8;
+            background: var(--mx); color: #fff; font-weight: 800; font-size: .92rem;
+            font-family: inherit; padding: 12px 20px; border-radius: 999px; border: none;
+            pointer-events: auto; cursor: pointer; white-space: nowrap;
+            box-shadow: 0 6px 20px rgba(0,0,0,.45); transition: opacity .5s ease;
         }
+        .player .frame .mute-hint:active { transform: translateX(-50%) scale(.96); }
         .player .frame .mute-hint.hidden { opacity: 0; }
         .player .yt-fallback { display: block; margin-top: 12px; color: #cdd3e6; font-size: .8rem; text-decoration: underline; text-align: center; }
         .watch {
@@ -791,25 +820,31 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
                 return 'left:' + left + 'px;top:' + c.top + 'px;width:' + width + 'px;height:' + c.height + 'px';
             }
 
+            // URL del vídeo embebido. 'muted' = arrancar en silencio (necesario en iPhone).
+            // hl=es y cc_lang_pref=es: forzar idioma español para que el TÍTULO coincida con el del RSS.
+            // fs=0: ocultar el botón de pantalla completa de YouTube (usamos el nuestro).
+            function embedSrc(muted) {
+                var id = encodeURIComponent(pendingId);
+                var mute = muted ? '&mute=1' : '';
+                return 'https://www.youtube-nocookie.com/embed/' + id +
+                    '?autoplay=1' + mute + '&rel=0&modestbranding=1&playsinline=1&hl=es&cc_lang_pref=es&fs=0';
+            }
+
+            // En iPhone, al tocar el botón de sonido recargamos el vídeo SIN silencio.
+            // Como es un toque del usuario, iOS sí permite reproducir con audio.
+            function enableSound() {
+                var iframe = document.getElementById('ytFrame');
+                if (iframe) iframe.src = embedSrc(false);
+                var btn = document.getElementById('muteHint');
+                if (btn) btn.style.display = 'none';
+            }
+
             function play() {
                 if (!pendingId) return;
                 var id = encodeURIComponent(pendingId);
-                // Reproducir SIEMPRE (también al calibrar): así el título de YouTube
-                // se renderiza igual en ambos modos y la calibración coincide con lo que se ve.
-                var autoplay = '1';
-                // El botón de pantalla completa de YouTube SÍ se muestra. Cuando se pulsa,
-                // YouTube pone a pantalla completa solo su iframe (y el recuadro quedaría fuera);
-                // lo detectamos abajo y redirigimos la pantalla completa a nuestro contenedor (iframe + recuadro).
-                // hl=es y cc_lang_pref=es: forzar el idioma del reproductor a español para que YouTube
-                // muestre el TÍTULO en español (el mismo que leemos del RSS y que medimos). Si no,
-                // mostraría a veces el título en inglés y el recuadro no cuadraría.
-                // fs=0: ocultar el botón de pantalla completa de YouTube. Ese botón solo agranda su iframe
-                // (dejando fuera el recuadro). Usamos nuestro propio botón, que agranda iframe + recuadro juntos.
-                // mute=1 SOLO en iPhone/iPad: iOS no deja autoplay con sonido, así que arranca en silencio
-                // (para saltar la portada con el resultado) y el usuario toca 🔊 para oír la narración.
-                var mute = isIOS ? '&mute=1' : '';
-                var html = '<iframe src="https://www.youtube-nocookie.com/embed/' + id +
-                    '?autoplay=' + autoplay + mute + '&rel=0&modestbranding=1&playsinline=1&hl=es&cc_lang_pref=es&fs=0" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>';
+                // En iPhone arrancamos en silencio (iOS no deja autoplay con sonido).
+                var html = '<iframe id="ytFrame" src="' + embedSrc(isIOS) +
+                    '" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>';
                 if (!calibrating) {
                     html += '<div class="load-cover" id="loadCover">Cargando resumen…</div>';
                 }
@@ -825,24 +860,26 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
                     html += '<div class="cal-readout" id="calReadout">Arrastra el recuadro · esquina = tamaño</div>';
                 }
                 if (isIOS && !calibrating) {
-                    html += '<div class="mute-hint" id="muteHint">🔇 Toca 🔊 para el sonido</div>';
+                    html += '<button type="button" class="mute-hint" id="muteHint">🔊 Toca para activar el sonido</button>';
                 }
                 frame.innerHTML = html;
+                var muteBtn = document.getElementById('muteHint');
+                if (muteBtn) muteBtn.addEventListener('click', enableSound);
                 fallback.href = 'https://www.youtube.com/watch?v=' + id;
                 overlay.classList.add('show');
                 overlay.classList.add('playing');
+                // En iPhone abrimos el vídeo ya agrandado (iOS no permite pantalla completa real de un div).
+                if (isIOS && !calibrating) {
+                    overlay.classList.add('big');
+                    if (playerFs) playerFs.textContent = '✕ Reducir';
+                    setTimeout(repositionBox, 60);
+                }
                 goFullscreen();
                 clearTimeout(coverTimer);
                 coverTimer = setTimeout(function () {
                     var cover = document.getElementById('loadCover');
                     if (cover) cover.classList.add('hidden');
                 }, 1800);
-                if (isIOS && !calibrating) {
-                    setTimeout(function () {
-                        var hint = document.getElementById('muteHint');
-                        if (hint) hint.classList.add('hidden');
-                    }, 4500);
-                }
                 if (calibrating && pendingScoreStart >= 0) setupCalibration();
             }
 
