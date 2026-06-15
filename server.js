@@ -568,6 +568,8 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
             width: min(100vw, calc(100vh * 16 / 9)); height: auto; border-radius: 0;
         }
         #videoOverlay.big .yt-fallback { display: none; }
+        /* En "Agrandar" (iPhone) no mostramos el botón Reducir; se sale con "✕ Cerrar". */
+        #videoOverlay.big .player-fs { display: none; }
         .player .player-bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; }
         .player .player-close, .player .player-fs {
             background: rgba(255,255,255,.16); color: #fff;
@@ -798,15 +800,21 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
 
             function boxStyle() {
                 // El iPhone no permite pantalla completa real de un contenedor, así que usa el modo
-                // "Agrandar" (clase .big): el vídeo llena la pantalla con un tamaño 16:9 conocido,
-                // igual que Android a pantalla completa. En ese caso SÍ usamos el recuadro fino.
-                var bigIOS = isIOS && overlay.classList.contains('big');
+                // "Agrandar" (clase .big). En HORIZONTAL el vídeo llena la pantalla en 16:9 (igual que
+                // Android a pantalla completa) y el recuadro fino va bien. En VERTICAL el vídeo queda
+                // como una franja pequeña centrada, con otra geometría, y el recuadro se descoloca:
+                // por eso en iPhone vertical caemos a la franja entera (más abajo), que tapa seguro.
+                var bigIOS = isIOS && overlay.classList.contains('big') && landscape.matches;
                 // Si NO está a pantalla completa real NI en "Agrandar" de iPhone (p. ej. incrustado
                 // en pequeño en PC), el título se dibuja a un tamaño impredecible → el recuadro fino
                 // no es fiable. En ese caso tapamos toda la franja del título a lo ancho.
                 if (!isFullscreen() && !bigIOS) {
-                    // Alto justo para tapar la línea del título: mínimo 40px (para móvil pequeño),
-                    // y como mucho un 3% en reproductores grandes (PC) para que no sea una barra enorme.
+                    // iPhone vertical (modo Agrandar): el título sale pequeño, así que la franja
+                    // puede ser más estrecha. (Si hace falta, ajusta este 30px a tu iPhone.)
+                    if (isIOS && overlay.classList.contains('big')) {
+                        return 'left:0;top:0;width:100%;height:30px';
+                    }
+                    // Resto de casos (PC con reproductor pequeño): mínimo 40px y como mucho 3%.
                     return 'left:0;top:0;width:100%;height:max(40px, 3%)';
                 }
                 // A pantalla completa: recuadro fino y preciso sobre los números (como se calibró).
