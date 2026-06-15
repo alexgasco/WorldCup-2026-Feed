@@ -712,15 +712,6 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
             function isFullscreen() {
                 return !!(document.fullscreenElement || document.webkitFullscreenElement);
             }
-            // Tamaño de referencia = el del reproductor a pantalla completa (≈ tamaño de pantalla),
-            // que es como se calibró. Sirve para escalar el recuadro cuando el vídeo se ve incrustado
-            // en pequeño. A pantalla completa no se escala (queda exacto).
-            function refSize() {
-                var sw = window.screen.width, sh = window.screen.height;
-                var big = Math.max(sw, sh), small = Math.min(sw, sh);
-                if (isDesktop || landscape.matches) return { w: big, h: small };
-                return { w: small, h: big }; // móvil vertical
-            }
 
             // Medidor de ancho de texto real con la fuente de YouTube (canvas measureText).
             var _measureCtx = document.createElement('canvas').getContext('2d');
@@ -756,27 +747,25 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
 
 
             function boxStyle() {
-                var c = CAL();
-                // A pantalla completa: escala 1 (el recuadro queda exacto, como se calibró).
-                // Incrustado en pequeño: se escala según el tamaño real del reproductor respecto
-                // al de pantalla completa, para que tape bien también en pequeño.
-                var sw = 1, sh = 1;
+                // Si NO está a pantalla completa (incrustado en pequeño, o iPhone que no permite
+                // pantalla completa), el título de YouTube se dibuja a un tamaño que no podemos
+                // predecir con precisión → el recuadro fino no es fiable. En ese caso tapamos toda
+                // la franja del título a lo ancho, para garantizar que NO se vea el resultado.
                 if (!isFullscreen()) {
-                    // Incrustado en pequeño: escalar respecto al tamaño a pantalla completa.
-                    var ref = refSize();
-                    var fr = frame.getBoundingClientRect();
-                    if (ref.w) sw = fr.width / ref.w;
-                    if (ref.h) sh = fr.height / ref.h;
+                    // Alto justo para tapar la línea del título: mínimo 48px (para móvil pequeño),
+                    // y como mucho un 5% en reproductores grandes (PC) para que no sea una barra enorme.
+                    return 'left:0;top:0;width:100%;height:max(48px, 5%)';
                 }
-                var fontSize = c.fontSize * sw;
+                // A pantalla completa: recuadro fino y preciso sobre los números (como se calibró).
+                var c = CAL();
                 // Posición = inicio del título + ancho REAL del texto antes del número.
-                // Margen de seguridad a cada lado (≈ proporción del tamaño de letra) para absorber
-                // el pequeño error de medición entre títulos distintos. Antes/después del número
-                // casi siempre hay un espacio, así que tapar unos píxeles de más no molesta.
-                var margin = fontSize * 0.35;
-                var left = c.padLeft * sw + measureText(titleBefore(), fontSize) - margin;
-                var width = measureText(titleScore(), fontSize) + margin * 2;
-                return 'left:' + left + 'px;top:' + (c.top * sh) + 'px;width:' + width + 'px;height:' + (c.height * sh) + 'px';
+                // Margen asimétrico: más por la IZQUIERDA, porque el error de medición de la fuente
+                // siempre deja asomar el primer número por ese lado. Por la derecha basta un poco.
+                var mL = c.fontSize * 0.60;
+                var mR = c.fontSize * 0.30;
+                var left = c.padLeft + measureText(titleBefore(), c.fontSize) - mL;
+                var width = measureText(titleScore(), c.fontSize) + mL + mR;
+                return 'left:' + left + 'px;top:' + c.top + 'px;width:' + width + 'px;height:' + c.height + 'px';
             }
 
             function play() {
@@ -931,7 +920,11 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
             closeButton.addEventListener('click', closeAll);
             playerClose.addEventListener('click', closeAll);
             // Nuestro botón de pantalla completa: agranda el contenedor (iframe + recuadro), no solo el iframe.
-            if (playerFs) playerFs.addEventListener('click', goFullscreen);
+            // En iPhone/iPad lo ocultamos: iOS no permite pantalla completa de un contenedor (solo de vídeo nativo).
+            if (playerFs) {
+                if (isIOS) { playerFs.style.display = 'none'; }
+                else { playerFs.addEventListener('click', goFullscreen); }
+            }
         })();
     </script>
 </body>
