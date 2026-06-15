@@ -826,6 +826,13 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
                 // otros móviles (pantalla distinta) el primer número puede asomar por la izquierda.
                 var mL = c.fontSize * (isDesktop ? 0.60 : 0.90);
                 var mR = c.fontSize * 0.42;
+                // iPhone horizontal: sobraba recuadro por la izquierda y quedaba justo por la derecha.
+                // Reducimos el margen izquierdo (el borde izquierdo se mete a la derecha) y ampliamos
+                // un poco el derecho, sin tocar la calibración de Android.
+                if (bigIOS) {
+                    mL = c.fontSize * 0.45;
+                    mR = c.fontSize * 0.55;
+                }
                 var left = c.padLeft + measureText(titleBefore(), c.fontSize) - mL;
                 var width = measureText(titleScore(), c.fontSize) + mL + mR;
                 return 'left:' + left + 'px;top:' + c.top + 'px;width:' + width + 'px;height:' + c.height + 'px';
