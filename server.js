@@ -826,15 +826,26 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
             function embedSrc(muted) {
                 var id = encodeURIComponent(pendingId);
                 var mute = muted ? '&mute=1' : '';
+                // enablejsapi=1: permite enviar órdenes al reproductor (p. ej. quitar el silencio)
+                // SIN recargar el vídeo, para que en iPhone no reaparezca la portada con el resultado.
                 return 'https://www.youtube-nocookie.com/embed/' + id +
-                    '?autoplay=1' + mute + '&rel=0&modestbranding=1&playsinline=1&hl=es&cc_lang_pref=es&fs=0';
+                    '?autoplay=1' + mute + '&rel=0&modestbranding=1&playsinline=1&hl=es&cc_lang_pref=es&fs=0&enablejsapi=1';
             }
 
-            // En iPhone, al tocar el botón de sonido recargamos el vídeo SIN silencio.
-            // Como es un toque del usuario, iOS sí permite reproducir con audio.
+            // En iPhone, el vídeo ya está sonando en silencio. Al tocar el botón le quitamos
+            // el mute "al vuelo" mandándole una orden al reproductor (NO recargamos: así no
+            // aparece la portada con el resultado).
             function enableSound() {
                 var iframe = document.getElementById('ytFrame');
-                if (iframe) iframe.src = embedSrc(false);
+                if (iframe && iframe.contentWindow) {
+                    var send = function (func, args) {
+                        iframe.contentWindow.postMessage(
+                            JSON.stringify({ event: 'command', func: func, args: args || [] }), '*');
+                    };
+                    send('unMute');
+                    send('setVolume', [100]);
+                    send('playVideo');
+                }
                 var btn = document.getElementById('muteHint');
                 if (btn) btn.style.display = 'none';
             }
