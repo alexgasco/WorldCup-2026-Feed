@@ -761,7 +761,9 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
                 // Posición = inicio del título + ancho REAL del texto antes del número.
                 // Margen asimétrico: más por la IZQUIERDA, porque el error de medición de la fuente
                 // siempre deja asomar el primer número por ese lado. Por la derecha basta un poco.
-                var mL = c.fontSize * 0.60;
+                // Más margen izquierdo en MÓVIL: el recuadro se calibró en un móvil concreto y en
+                // otros móviles (pantalla distinta) el primer número puede asomar por la izquierda.
+                var mL = c.fontSize * (isDesktop ? 0.60 : 0.90);
                 var mR = c.fontSize * 0.42;
                 var left = c.padLeft + measureText(titleBefore(), c.fontSize) - mL;
                 var width = measureText(titleScore(), c.fontSize) + mL + mR;
