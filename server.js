@@ -416,6 +416,14 @@ const LOGO_DEFS = `
 const PAGE_TEMPLATE = `<!DOCTYPE html>
 <html lang="es">
 <head>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-K3Z9H173W1"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-K3Z9H173W1');
+    </script>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>World Cup 2026 sin Spoilers</title>
@@ -520,6 +528,19 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
         #videoOverlay.playing { background: rgba(0,0,0,.94); padding: 12px; }
         #videoOverlay.playing .box { display: none; }
         #videoOverlay.playing .player { display: block; }
+        /* Modo "Agrandar" (iPhone): el vídeo llena la pantalla del navegador, manteniendo la franja. */
+        #videoOverlay.big { padding: 0; }
+        #videoOverlay.big .player {
+            position: fixed; inset: 0; max-width: none; width: 100%; height: 100%; margin: 0;
+            display: flex; align-items: center; justify-content: center; background: #000; z-index: 30;
+        }
+        #videoOverlay.big .player-bar {
+            position: absolute; top: 8px; left: 8px; right: 8px; z-index: 2; margin: 0;
+        }
+        #videoOverlay.big .frame {
+            width: min(100vw, calc(100vh * 16 / 9)); height: auto; border-radius: 0;
+        }
+        #videoOverlay.big .yt-fallback { display: none; }
         .player .player-bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; }
         .player .player-close, .player .player-fs {
             background: rgba(255,255,255,.16); color: #fff;
@@ -898,6 +919,8 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
             function closeAll() {
                 overlay.classList.remove('show');
                 overlay.classList.remove('playing');
+                overlay.classList.remove('big');
+                if (playerFs && isIOS) playerFs.textContent = '⛶ Agrandar';
                 clearTimeout(coverTimer);
                 frame.innerHTML = '';
             }
@@ -921,11 +944,21 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
 
             closeButton.addEventListener('click', closeAll);
             playerClose.addEventListener('click', closeAll);
-            // Nuestro botón de pantalla completa: agranda el contenedor (iframe + recuadro), no solo el iframe.
-            // En iPhone/iPad lo ocultamos: iOS no permite pantalla completa de un contenedor (solo de vídeo nativo).
+            // En iPhone/iPad no se puede pantalla completa de un contenedor (solo de vídeo nativo),
+            // así que el botón hace "Agrandar": el vídeo llena la pantalla del navegador con CSS,
+            // manteniendo la franja que tapa el resultado. En PC/Android, pantalla completa de verdad.
+            function toggleBig() {
+                overlay.classList.toggle('big');
+                playerFs.textContent = overlay.classList.contains('big') ? '✕ Reducir' : '⛶ Agrandar';
+                setTimeout(repositionBox, 60);
+            }
             if (playerFs) {
-                if (isIOS) { playerFs.style.display = 'none'; }
-                else { playerFs.addEventListener('click', goFullscreen); }
+                if (isIOS) {
+                    playerFs.textContent = '⛶ Agrandar';
+                    playerFs.addEventListener('click', toggleBig);
+                } else {
+                    playerFs.addEventListener('click', goFullscreen);
+                }
             }
         })();
     </script>
