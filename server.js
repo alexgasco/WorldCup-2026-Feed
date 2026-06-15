@@ -797,11 +797,14 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
 
 
             function boxStyle() {
-                // Si NO está a pantalla completa (incrustado en pequeño, o iPhone que no permite
-                // pantalla completa), el título de YouTube se dibuja a un tamaño que no podemos
-                // predecir con precisión → el recuadro fino no es fiable. En ese caso tapamos toda
-                // la franja del título a lo ancho, para garantizar que NO se vea el resultado.
-                if (!isFullscreen()) {
+                // El iPhone no permite pantalla completa real de un contenedor, así que usa el modo
+                // "Agrandar" (clase .big): el vídeo llena la pantalla con un tamaño 16:9 conocido,
+                // igual que Android a pantalla completa. En ese caso SÍ usamos el recuadro fino.
+                var bigIOS = isIOS && overlay.classList.contains('big');
+                // Si NO está a pantalla completa real NI en "Agrandar" de iPhone (p. ej. incrustado
+                // en pequeño en PC), el título se dibuja a un tamaño impredecible → el recuadro fino
+                // no es fiable. En ese caso tapamos toda la franja del título a lo ancho.
+                if (!isFullscreen() && !bigIOS) {
                     // Alto justo para tapar la línea del título: mínimo 40px (para móvil pequeño),
                     // y como mucho un 3% en reproductores grandes (PC) para que no sea una barra enorme.
                     return 'left:0;top:0;width:100%;height:max(40px, 3%)';
