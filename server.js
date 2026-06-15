@@ -363,7 +363,8 @@ const buildPage = (daznFeed, tveFeed, replayFeed) => {
     const today = dateKeyMadrid(new Date());
 
     const renderDay = (dateKey, heading) => {
-        const items = days.get(dateKey).sort((a, b) => a.sortTime - b.sortTime);
+        // Dentro de cada día, el más reciente (hora más tardía) primero.
+        const items = days.get(dateKey).sort((a, b) => b.sortTime - a.sortTime);
         return `<section class="day"><h2>${heading}</h2><div class="cards">${items.map(renderMatchCard).join('')}</div></section>`;
     };
 
@@ -698,6 +699,19 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
                 return set[pendingProvider] || set.dazn || CALS.desktop.dazn;
             }
 
+            function isFullscreen() {
+                return !!(document.fullscreenElement || document.webkitFullscreenElement);
+            }
+            // Tamaño de referencia = el del reproductor a pantalla completa (≈ tamaño de pantalla),
+            // que es como se calibró. Sirve para escalar el recuadro cuando el vídeo se ve incrustado
+            // en pequeño. A pantalla completa no se escala (queda exacto).
+            function refSize() {
+                var sw = window.screen.width, sh = window.screen.height;
+                var big = Math.max(sw, sh), small = Math.min(sw, sh);
+                if (isDesktop || landscape.matches) return { w: big, h: small };
+                return { w: small, h: big }; // móvil vertical
+            }
+
             // Medidor de ancho de texto real con la fuente de YouTube (canvas measureText).
             var _measureCtx = document.createElement('canvas').getContext('2d');
             function measureText(str, fontSize) {
@@ -721,6 +735,9 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
                 window.addEventListener('orientationchange', repositionBox);
             }
             window.addEventListener('resize', repositionBox);
+            // Al entrar/salir de pantalla completa cambia el tamaño del reproductor → recolocar.
+            document.addEventListener('fullscreenchange', repositionBox);
+            document.addEventListener('webkitfullscreenchange', repositionBox);
 
             function goFullscreen() {
                 var request = frame.requestFullscreen || frame.webkitRequestFullscreen || frame.msRequestFullscreen;
@@ -730,14 +747,26 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
 
             function boxStyle() {
                 var c = CAL();
+                // A pantalla completa: escala 1 (el recuadro queda exacto, como se calibró).
+                // Incrustado en pequeño: se escala según el tamaño real del reproductor respecto
+                // al de pantalla completa, para que tape bien también en pequeño.
+                var sw = 1, sh = 1;
+                if (!isFullscreen()) {
+                    // Incrustado en pequeño: escalar respecto al tamaño a pantalla completa.
+                    var ref = refSize();
+                    var fr = frame.getBoundingClientRect();
+                    if (ref.w) sw = fr.width / ref.w;
+                    if (ref.h) sh = fr.height / ref.h;
+                }
+                var fontSize = c.fontSize * sw;
                 // Posición = inicio del título + ancho REAL del texto antes del número.
                 // Margen de seguridad a cada lado (≈ proporción del tamaño de letra) para absorber
                 // el pequeño error de medición entre títulos distintos. Antes/después del número
                 // casi siempre hay un espacio, así que tapar unos píxeles de más no molesta.
-                var margin = c.fontSize * 0.35;
-                var left = c.padLeft + measureText(titleBefore(), c.fontSize) - margin;
-                var width = measureText(titleScore(), c.fontSize) + margin * 2;
-                return 'left:' + left + 'px;top:' + c.top + 'px;width:' + width + 'px;height:' + c.height + 'px';
+                var margin = fontSize * 0.35;
+                var left = c.padLeft * sw + measureText(titleBefore(), fontSize) - margin;
+                var width = measureText(titleScore(), fontSize) + margin * 2;
+                return 'left:' + left + 'px;top:' + (c.top * sh) + 'px;width:' + width + 'px;height:' + (c.height * sh) + 'px';
             }
 
             function play() {
