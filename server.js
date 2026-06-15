@@ -752,9 +752,9 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
                 // predecir con precisión → el recuadro fino no es fiable. En ese caso tapamos toda
                 // la franja del título a lo ancho, para garantizar que NO se vea el resultado.
                 if (!isFullscreen()) {
-                    // Alto justo para tapar la línea del título: mínimo 48px (para móvil pequeño),
-                    // y como mucho un 5% en reproductores grandes (PC) para que no sea una barra enorme.
-                    return 'left:0;top:0;width:100%;height:max(48px, 5%)';
+                    // Alto justo para tapar la línea del título: mínimo 40px (para móvil pequeño),
+                    // y como mucho un 3% en reproductores grandes (PC) para que no sea una barra enorme.
+                    return 'left:0;top:0;width:100%;height:max(40px, 3%)';
                 }
                 // A pantalla completa: recuadro fino y preciso sobre los números (como se calibró).
                 var c = CAL();
@@ -762,7 +762,7 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
                 // Margen asimétrico: más por la IZQUIERDA, porque el error de medición de la fuente
                 // siempre deja asomar el primer número por ese lado. Por la derecha basta un poco.
                 var mL = c.fontSize * 0.60;
-                var mR = c.fontSize * 0.30;
+                var mR = c.fontSize * 0.42;
                 var left = c.padLeft + measureText(titleBefore(), c.fontSize) - mL;
                 var width = measureText(titleScore(), c.fontSize) + mL + mR;
                 return 'left:' + left + 'px;top:' + c.top + 'px;width:' + width + 'px;height:' + c.height + 'px';
