@@ -830,8 +830,8 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
                 // Reducimos el margen izquierdo (el borde izquierdo se mete a la derecha) y ampliamos
                 // un poco el derecho, sin tocar la calibración de Android.
                 if (bigIOS) {
-                    mL = c.fontSize * 0.45;
-                    mR = c.fontSize * 0.55;
+                    mL = c.fontSize * 0.30;
+                    mR = c.fontSize * 0.62;
                 }
                 var left = c.padLeft + measureText(titleBefore(), c.fontSize) - mL;
                 var width = measureText(titleScore(), c.fontSize) + mL + mR;
