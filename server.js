@@ -460,9 +460,9 @@ const buildPage = (daznFeed, tveFeed, replayFeed) => {
     // Hace 6 días (para mostrar hoy + 6 días anteriores = 7 días en la pestaña principal).
     const sixDaysAgo = dateKeyMadrid(new Date(Date.now() - 6 * 24 * 60 * 60 * 1000));
 
-    const renderDay = (dateKey, heading) => {
-        // Dentro de cada día, el más reciente (hora más tardía) primero.
-        const items = days.get(dateKey).sort((a, b) => b.sortTime - a.sortTime);
+    const renderDay = (dateKey, heading, asc) => {
+        // asc=true: hora más temprana primero (próximos). Si no: más reciente primero (jugados).
+        const items = days.get(dateKey).sort((a, b) => asc ? a.sortTime - b.sortTime : b.sortTime - a.sortTime);
         return `<section class="day"><h2>${heading}</h2><div class="cards">${items.map(renderMatchCard).join('')}</div></section>`;
     };
     const dayHeading = (dateKey) => dateKey === today ? 'Hoy · ' + prettyDate(today) : prettyDate(dateKey);
@@ -488,7 +488,7 @@ const buildPage = (daznFeed, tveFeed, replayFeed) => {
     const restSections = [...days.keys()]
         .filter((dateKey) => dateKey > today)
         .sort((a, b) => a.localeCompare(b))
-        .map((dateKey) => renderDay(dateKey, prettyDate(dateKey)))
+        .map((dateKey) => renderDay(dateKey, prettyDate(dateKey), true)) // hora ascendente
         .join('');
 
     // Dos pestañas: "Hoy y anteriores" (partidos jugados) y "Próximos partidos".
