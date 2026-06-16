@@ -249,6 +249,12 @@ const prettyDate = (dateKey) => {
     return text.charAt(0).toUpperCase() + text.slice(1);
 };
 
+// Solo día y mes, p. ej. "16 de junio" (para el título "Hoy").
+const dayMonth = (dateKey) => {
+    const date = new Date(dateKey + 'T12:00:00Z');
+    return new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long' }).format(date);
+};
+
 // Turns one raw RSS item into a clean object, or null if it is not a match.
 const buildVideoEntry = (item, source) => {
     const teams = findTeams(item.title);
@@ -395,7 +401,7 @@ const buildPage = (daznFeed, tveFeed, replayFeed) => {
     const mainSections = [...days.keys()]
         .filter((dateKey) => dateKey <= today)
         .sort((a, b) => b.localeCompare(a))
-        .map((dateKey) => renderDay(dateKey, dateKey === today ? 'Hoy' : prettyDate(dateKey)))
+        .map((dateKey) => renderDay(dateKey, dateKey === today ? 'Hoy · ' + dayMonth(today) : prettyDate(dateKey)))
         .join('');
 
     // Upcoming days go into a collapsible calendar (chronological).
@@ -479,6 +485,7 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
             background: linear-gradient(95deg, var(--ca), var(--us) 50%, var(--mx));
             -webkit-background-clip: text; background-clip: text; color: transparent;
         }
+        header h1 .sub2 { display: block; font-size: .82em; margin-top: 4px; }
         header .host {
             margin-top: 10px; font-family: 'Orbitron', sans-serif; font-size: .72rem; font-weight: 700; letter-spacing: 4px;
         }
@@ -493,6 +500,8 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
             font-size: .95rem; color: var(--us); text-transform: uppercase; letter-spacing: 1.2px;
             margin: 26px 0 12px; padding-left: 10px; border-left: 4px solid var(--gold);
         }
+        /* El primer título (Hoy) va pegado al texto de la cabecera: menos hueco arriba. */
+        main .day:first-of-type h2 { margin-top: 8px; }
         /* Rejilla de tarjetas: 1 columna (móvil por defecto). En PC pasa a 2-3 columnas (más abajo). */
         .cards { display: grid; grid-template-columns: 1fr; gap: 10px; align-items: start; }
         .dots {
@@ -676,7 +685,7 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
 
     <header>
         <img class="emblem" src="/emblem.svg" alt="FIFA World Cup 2026" width="63" height="98">
-        <h1>World Cup 2026</h1>
+        <h1>World Cup 2026<span class="sub2">Sin Spoilers</span></h1>
         <div class="host"><span class="ca">CANADÁ</span><span>·</span><span class="us">USA</span><span>·</span><span class="mx">MÉXICO</span></div>
         <div class="note">Resúmenes sin spoilers (sin mostrar el resultado final).</div>
     </header>
