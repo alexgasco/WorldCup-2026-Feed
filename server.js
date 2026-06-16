@@ -4,6 +4,7 @@ const path = require('path');
 const Parser = require('rss-parser');
 
 const parser = new Parser({
+    timeout: 9000, // si YouTube tarda más de 9s, abortamos (y usamos la caché)
     customFields: {
         item: [['media:group', 'mediaGroup']],
     },
@@ -1031,6 +1032,49 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
 </body>
 </html>`;
 
+// ===========================================================================
+//  CACHÉ DE LOS FEEDS DE YOUTUBE
+// ---------------------------------------------------------------------------
+//  Pedimos los RSS a YouTube como mucho una vez cada CACHE_TTL. Entre medias,
+//  todas las visitas reutilizan la última respuesta guardada. Además, si una
+//  petición falla, conservamos la última respuesta BUENA de ese suministrador,
+//  para que un fallo temporal de YouTube no deje todos los botones en
+//  "No disponible" (que es lo que pasó en la franja de las 8:30-9:00).
+// ===========================================================================
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutos
+const feedCache = { dazn: { items: [] }, rtve: { items: [] }, replay: { items: [] } };
+let cacheTime = 0;          // momento de la última actualización
+let refreshing = null;      // actualización en curso (para no lanzar varias a la vez)
+
+const refreshFeeds = async () => {
+    const tryFetch = async (id, key) => {
+        try {
+            const feed = await parser.parseURL(getRssUrl(id));
+            // Solo sobreescribimos si la respuesta es válida. Si falla, dejamos la anterior.
+            if (feed && Array.isArray(feed.items)) feedCache[key] = feed;
+        } catch (error) {
+            console.warn('Aviso: no se pudo actualizar el feed', key, '-', error.message);
+        }
+    };
+    await Promise.all([
+        tryFetch(daznPlaylistId, 'dazn'),
+        tryFetch(tvePlaylistId, 'rtve'),
+        tryFetch(replayPlaylistId, 'replay'),
+    ]);
+    cacheTime = Date.now();
+};
+
+const getFeeds = async () => {
+    // Si la caché es reciente, la devolvemos tal cual (sin pedir nada a YouTube).
+    if (Date.now() - cacheTime < CACHE_TTL) return feedCache;
+    // Si está caducada, refrescamos. Si ya hay un refresco en marcha, esperamos a ese mismo.
+    if (!refreshing) {
+        refreshing = refreshFeeds().finally(() => { refreshing = null; });
+    }
+    await refreshing;
+    return feedCache;
+};
+
 const server = http.createServer(async (req, res) => {
     if (req.url === '/favicon.ico' || req.url === '/favicon') {
         const icon = BALL_ICON || (EMBLEM_SVG ? { data: EMBLEM_SVG, type: 'image/svg+xml; charset=utf-8' } : null);
@@ -1067,15 +1111,9 @@ const server = http.createServer(async (req, res) => {
     }
 
     try {
-        const fetchFeed = (id) => parser.parseURL(getRssUrl(id)).catch(() => ({ items: [] }));
-        const [daznFeed, tveFeed, replayFeed] = await Promise.all([
-            fetchFeed(daznPlaylistId),
-            fetchFeed(tvePlaylistId),
-            fetchFeed(replayPlaylistId),
-        ]);
-
+        const feeds = await getFeeds();
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(buildPage(daznFeed, tveFeed, replayFeed));
+        res.end(buildPage(feeds.dazn, feeds.rtve, feeds.replay));
     } catch (serverError) {
         res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
         res.end('System Failure: ' + serverError.message);
