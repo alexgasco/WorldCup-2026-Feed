@@ -55,7 +55,78 @@ const tvePlaylistId = 'PLhEMBJiEYKv5FvOHB49kE5-dCMHzZHuKa';
 const replayPlaylistId = 'PLPPlHBqoxcoM';
 const PORT = process.env.PORT || 3000;
 
+// Clave de la API de YouTube (se lee de la variable de entorno de Render, nunca va en el código).
+// Si existe, leemos la lista COMPLETA de cada cadena por la API. Si no, usamos el RSS (máx. 15).
+const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY || '';
+
 const getRssUrl = (playlistId) => `https://www.youtube.com/feeds/videos.xml?playlist_id=${playlistId}`;
+
+// Lee TODOS los vídeos de una lista por la API de YouTube (de 50 en 50, paginando).
+// Devuelve los vídeos con la misma forma que el RSS, para reutilizar el resto del código.
+const fetchPlaylistApi = async (playlistId) => {
+    const items = [];
+    let pageToken = '';
+    let pages = 0;
+    do {
+        const url = 'https://www.googleapis.com/youtube/v3/playlistItems' +
+            '?part=snippet,contentDetails&maxResults=50&playlistId=' + encodeURIComponent(playlistId) +
+            '&key=' + encodeURIComponent(YOUTUBE_API_KEY) + (pageToken ? '&pageToken=' + pageToken : '');
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('API HTTP ' + response.status);
+        const data = await response.json();
+        (data.items || []).forEach((it) => {
+            const details = it.contentDetails || {};
+            const snippet = it.snippet || {};
+            const videoId = details.videoId;
+            if (!videoId) return;
+            const thumbs = snippet.thumbnails || {};
+            const best = thumbs.maxres || thumbs.standard || thumbs.high || thumbs.medium || thumbs.default || {};
+            items.push({
+                title: snippet.title || '',
+                link: 'https://www.youtube.com/watch?v=' + videoId,
+                id: 'yt:video:' + videoId,
+                isoDate: details.videoPublishedAt || snippet.publishedAt,
+                mediaGroup: { 'media:thumbnail': [{ $: { url: best.url || '' } }] },
+            });
+        });
+        pageToken = data.nextPageToken || '';
+        pages += 1;
+    } while (pageToken && pages < 10); // tope de seguridad: hasta 500 vídeos
+
+    // Segunda llamada: pedir la DURACIÓN de cada vídeo (la lista anterior no la trae).
+    const ids = items.map((it) => it.id.split(':').pop());
+    const durations = await fetchDurations(ids);
+    items.forEach((it) => { it.duration = durations[it.id.split(':').pop()] || ''; });
+    return { items };
+};
+
+// Convierte la duración de YouTube (formato ISO, p. ej. "PT3M45S") a "3:45" (min:seg).
+const parseDuration = (iso) => {
+    const m = /PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/.exec(iso || '');
+    if (!m) return '';
+    const total = (parseInt(m[1] || '0', 10) * 3600) + (parseInt(m[2] || '0', 10) * 60) + parseInt(m[3] || '0', 10);
+    if (total <= 0) return '';
+    const mm = Math.floor(total / 60);
+    const ss = total % 60;
+    return mm + ':' + String(ss).padStart(2, '0');
+};
+
+// Pide las duraciones de una lista de vídeos (de 50 en 50) y devuelve { videoId: "3:45" }.
+const fetchDurations = async (videoIds) => {
+    const map = {};
+    for (let i = 0; i < videoIds.length; i += 50) {
+        const batch = videoIds.slice(i, i + 50);
+        const url = 'https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=' +
+            batch.join(',') + '&key=' + encodeURIComponent(YOUTUBE_API_KEY);
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('API videos HTTP ' + response.status);
+        const data = await response.json();
+        (data.items || []).forEach((v) => {
+            map[v.id] = parseDuration(v.contentDetails && v.contentDetails.duration);
+        });
+    }
+    return map;
+};
 
 // ===========================================================================
 //  CALENDARIO DE PARTIDOS  (EDITA AQUÍ los partidos del día)
@@ -249,12 +320,6 @@ const prettyDate = (dateKey) => {
     return text.charAt(0).toUpperCase() + text.slice(1);
 };
 
-// Solo día y mes, p. ej. "16 de junio" (para el título "Hoy").
-const dayMonth = (dateKey) => {
-    const date = new Date(dateKey + 'T12:00:00Z');
-    return new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long' }).format(date);
-};
-
 // Turns one raw RSS item into a clean object, or null if it is not a match.
 const buildVideoEntry = (item, source) => {
     const teams = findTeams(item.title);
@@ -273,6 +338,7 @@ const buildVideoEntry = (item, source) => {
     return {
         source, teams, link: item.link, videoId: (item.id || '').split(':').pop(),
         thumbnail, views, title: item.title || '',
+        duration: item.duration || '', // "3:45"; vacío si se leyó por RSS (sin duración)
         scoreStart: scoreMatch ? scoreMatch.index : -1,
         scoreLen: scoreMatch ? scoreMatch[0].length : 0,
         date: new Date(item.isoDate),
@@ -299,7 +365,8 @@ const renderButton = (entry, symbolId, brandClass, textLogo) => {
         ? `<span class="audio" title="Sin narración"><span class="nospeak">🗣️</span></span>`
         : `<span class="audio" title="Narración en español de España">🗣️<img class="miniflag" src="https://flagcdn.com/w20/es.png" width="16" height="11" alt="España"></span>`;
     if (entry) {
-        return `<button class="watch ${brandClass}" data-provider="${brandClass}" data-video="${escapeHtml(entry.videoId)}" data-title="${escapeHtml(entry.title)}" data-score-start="${entry.scoreStart}" data-score-len="${entry.scoreLen}">${logo}<span class="cap">Ver ▶</span>${audio}</button>`;
+        const cap = entry.duration ? `Ver ▶ <span class="dur">${entry.duration}</span>` : 'Ver ▶';
+        return `<button class="watch ${brandClass}" data-provider="${brandClass}" data-video="${escapeHtml(entry.videoId)}" data-title="${escapeHtml(entry.title)}" data-score-start="${entry.scoreStart}" data-score-len="${entry.scoreLen}">${logo}<span class="cap">${cap}</span>${audio}</button>`;
     }
     return `<button class="watch ${brandClass} disabled" disabled>${logo}<span class="cap">No disponible</span>${audio}</button>`;
 };
@@ -390,32 +457,48 @@ const buildPage = (daznFeed, tveFeed, replayFeed) => {
     }
 
     const today = dateKeyMadrid(new Date());
+    // Hace 6 días (para mostrar hoy + 6 días anteriores = 7 días en la pestaña principal).
+    const sixDaysAgo = dateKeyMadrid(new Date(Date.now() - 6 * 24 * 60 * 60 * 1000));
 
     const renderDay = (dateKey, heading) => {
         // Dentro de cada día, el más reciente (hora más tardía) primero.
         const items = days.get(dateKey).sort((a, b) => b.sortTime - a.sortTime);
         return `<section class="day"><h2>${heading}</h2><div class="cards">${items.map(renderMatchCard).join('')}</div></section>`;
     };
+    const dayHeading = (dateKey) => dateKey === today ? 'Hoy · ' + prettyDate(today) : prettyDate(dateKey);
 
-    // Main view: today and all previous days (most recent first).
-    const mainSections = [...days.keys()]
-        .filter((dateKey) => dateKey <= today)
+    // Pestaña 1, parte visible: hoy y los 6 días anteriores (del más reciente al más antiguo).
+    const recentSections = [...days.keys()]
+        .filter((dateKey) => dateKey <= today && dateKey >= sixDaysAgo)
         .sort((a, b) => b.localeCompare(a))
-        .map((dateKey) => renderDay(dateKey, dateKey === today ? 'Hoy · ' + dayMonth(today) : prettyDate(dateKey)))
+        .map((dateKey) => renderDay(dateKey, dayHeading(dateKey)))
         .join('');
 
-    // Upcoming days go into a collapsible calendar (chronological).
+    // Pestaña 1, desplegable: partidos de hace más de 7 días (calendario completo de lo jugado).
+    const olderSections = [...days.keys()]
+        .filter((dateKey) => dateKey < sixDaysAgo)
+        .sort((a, b) => b.localeCompare(a))
+        .map((dateKey) => renderDay(dateKey, prettyDate(dateKey)))
+        .join('');
+    const olderBlock = olderSections
+        ? `<details class="calendar"><summary>📅 Ver partidos anteriores (calendario completo)</summary>${olderSections}</details>`
+        : '';
+
+    // Pestaña 2: próximos partidos (futuros), en orden cronológico.
     const restSections = [...days.keys()]
         .filter((dateKey) => dateKey > today)
         .sort((a, b) => a.localeCompare(b))
         .map((dateKey) => renderDay(dateKey, prettyDate(dateKey)))
         .join('');
 
-    const calendar = restSections
-        ? `<details class="calendar"><summary>📅 Ver próximos partidos (calendario completo)</summary>${restSections}</details>`
-        : '';
-
-    const content = (mainSections + calendar) || '<p class="empty">No hay partidos ahora mismo.</p>';
+    // Dos pestañas: "Hoy y anteriores" (partidos jugados) y "Próximos partidos".
+    const content = `
+        <div class="tabs">
+            <button class="tab active" data-tab="prev">Hoy y anteriores</button>
+            <button class="tab" data-tab="next">Próximos partidos</button>
+        </div>
+        <div class="tab-panel active" id="tab-prev">${(recentSections + olderBlock) || '<p class="empty">Aún no hay partidos jugados.</p>'}</div>
+        <div class="tab-panel" id="tab-next">${restSections || '<p class="empty">No hay próximos partidos.</p>'}</div>`;
     return PAGE_TEMPLATE.replace('<!--CONTENT-->', content);
 };
 
@@ -638,7 +721,8 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
         .watch .brand.logo-replay, .brand.replay { height: 24px; width: 24px; }
         .watch .brand.replay-img { height: 26px; width: 26px; border-radius: 50%; object-fit: cover; }
         .watch .brand.brand-text { height: auto; width: auto; font-weight: 800; font-size: .95rem; line-height: 26px; letter-spacing: .2px; }
-        .watch .cap { font-size: .7rem; font-weight: 700; }
+        .watch .cap { font-size: .7rem; font-weight: 700; white-space: nowrap; }
+        .watch .cap .dur { font-weight: 800; opacity: .6; font-variant-numeric: tabular-nums; }
         .watch .audio { display: flex; align-items: center; justify-content: center; gap: 3px; font-size: .72rem; margin-top: 3px; line-height: 1; }
         .watch .miniflag { width: 16px; height: 11px; border-radius: 2px; box-shadow: 0 0 0 .5px rgba(0,0,0,.15); }
         .watch .audio .nospeak { position: relative; display: inline-block; line-height: 1; }
@@ -656,6 +740,17 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
         .watch.replay:not(.disabled) { border-color: rgba(0,51,160,.4); background: #eef2fb; }
         .watch.disabled { cursor: default; opacity: .45; background: #f5f6f9; }
         .watch.disabled .cap { color: var(--muted); }
+        /* Pestañas: "Hoy y anteriores" / "Próximos partidos". */
+        .tabs { display: flex; gap: 8px; max-width: 540px; margin: 8px auto 14px; }
+        .tab {
+            flex: 1; padding: 12px 10px; font-family: inherit; font-weight: 800; font-size: .85rem;
+            color: var(--muted); background: #fff; border: 1.5px solid var(--line); border-radius: 12px;
+            cursor: pointer; transition: background .15s, color .15s, border-color .15s;
+        }
+        .tab.active { color: #fff; background: var(--us); border-color: var(--us); box-shadow: 0 6px 16px rgba(0,51,160,.18); }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+        /* Desplegable de partidos anteriores (más de 7 días). */
         .calendar { max-width: 540px; margin: 18px auto 0; }
         .calendar > summary {
             list-style: none; cursor: pointer; text-align: center; font-weight: 800; font-size: .9rem;
@@ -665,16 +760,26 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
         .calendar > summary::-webkit-details-marker { display: none; }
         .calendar[open] > summary { margin-bottom: 4px; }
         .empty { text-align: center; color: var(--muted); margin-top: 40px; }
-        footer { text-align: center; color: var(--muted); font-size: .72rem; margin-top: 36px; }
+        footer { text-align: center; color: var(--muted); font-size: .72rem; margin-top: 36px; line-height: 1.7; }
+        footer .contact { font-weight: 600; }
+        footer .contact a { color: var(--us); font-weight: 800; text-decoration: none; }
+        footer .contact a:hover { text-decoration: underline; }
+        footer .donate {
+            display: inline-block; margin-left: 10px; padding: 4px 12px; border-radius: 999px;
+            background: transparent; color: var(--muted); border: 1px solid var(--line);
+            font-size: .7rem; font-weight: 700; text-decoration: none; letter-spacing: .2px;
+            vertical-align: middle; transition: color .15s, border-color .15s;
+        }
+        footer .donate:hover { color: var(--us); border-color: var(--us); }
 
         /* === SOLO PC === Pantallas anchas: ensanchar el contenedor y mostrar varias tarjetas por fila.
            En el móvil no se aplica nada de esto (sigue 1 tarjeta por fila). */
         @media (min-width: 760px) {
-            .day, .calendar, .dots { max-width: 940px; }
+            .day, .tabs, .calendar, .dots { max-width: 940px; }
             .cards { grid-template-columns: repeat(2, 1fr); gap: 14px; }
         }
         @media (min-width: 1180px) {
-            .day, .calendar, .dots { max-width: 1180px; }
+            .day, .tabs, .calendar, .dots { max-width: 1180px; }
             .cards { grid-template-columns: repeat(3, 1fr); }
         }
     </style>
@@ -693,7 +798,10 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
     <main><!--CONTENT--></main>
 
     <div class="dots"></div>
-    <footer>Sin marcadores: las miniaturas van difuminadas para no desvelar el resultado.</footer>
+    <footer>
+        <span class="contact">¿Fallos o sugerencias? Escríbeme: <a href="mailto:footballnospoilers@gmail.com">footballnospoilers@gmail.com</a></span>
+        <a class="donate" href="https://www.paypal.me/FootballNoSpoilers" target="_blank" rel="noopener">❤️ Donar</a>
+    </footer>
 
     <div id="videoOverlay">
         <div class="box">
@@ -1001,6 +1109,17 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
                 frame.innerHTML = '';
             }
 
+            // Pestañas: al pulsar una, se marca como activa y se muestra su panel.
+            document.querySelectorAll('.tab').forEach(function (tab) {
+                tab.addEventListener('click', function () {
+                    document.querySelectorAll('.tab').forEach(function (t) { t.classList.remove('active'); });
+                    document.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.remove('active'); });
+                    tab.classList.add('active');
+                    var panel = document.getElementById('tab-' + tab.getAttribute('data-tab'));
+                    if (panel) panel.classList.add('active');
+                });
+            });
+
             document.querySelectorAll('.watch[data-video]').forEach(function (element) {
                 element.addEventListener('click', function () {
                     pendingId = element.getAttribute('data-video');
@@ -1058,7 +1177,8 @@ let refreshing = null;      // actualización en curso (para no lanzar varias a 
 const refreshFeeds = async () => {
     const tryFetch = async (id, key) => {
         try {
-            const feed = await parser.parseURL(getRssUrl(id));
+            // Con clave de API: lista completa. Sin clave: RSS (máx. 15 vídeos).
+            const feed = YOUTUBE_API_KEY ? await fetchPlaylistApi(id) : await parser.parseURL(getRssUrl(id));
             // Solo sobreescribimos si la respuesta es válida. Si falla, dejamos la anterior.
             if (feed && Array.isArray(feed.items)) feedCache[key] = feed;
         } catch (error) {
