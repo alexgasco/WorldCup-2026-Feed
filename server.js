@@ -413,7 +413,7 @@ const renderButton = (entry, symbolId, brandClass, textLogo) => {
     return `<button class="watch ${brandClass} disabled" disabled>${logo}<span class="cap">No disponible</span>${audio}</button>`;
 };
 
-const renderMatchCard = (match) => {
+const renderMatchCard = (match, hideButtons) => {
     const [home, away] = match.teams;
     const reference = match.rtve || match.dazn || match.replay || match.sportschau;
     const thumbnail = reference && reference.thumbnail ? reference.thumbnail : '';
@@ -422,12 +422,20 @@ const renderMatchCard = (match) => {
     const groupLetter = phase === 'Fase de grupos' ? (TEAM_GROUP[home.iso] || '') : '';
     const phaseLabel = groupLetter ? `${phase} · Grupo ${groupLetter}` : phase;
 
-    // Un partido se considera finalizado ~2 horas después de su inicio.
-    const finished = match.sortTime instanceof Date && (match.sortTime.getTime() + 2 * 60 * 60 * 1000) < Date.now();
-    const statusBadge = finished ? '<span class="status">✓ Finalizado</span>' : '';
+    // Estados según la hora de inicio:
+    //   - antes del inicio: próximo
+    //   - desde el inicio hasta 2 h después: "En juego"
+    //   - a partir de 2 h después del inicio: "Finalizado"
+    const kickoff = match.sortTime instanceof Date ? match.sortTime.getTime() : null;
+    const now = Date.now();
+    const finished = kickoff !== null && (kickoff + 2 * 60 * 60 * 1000) <= now;
+    const live = kickoff !== null && !finished && kickoff <= now;
+    let statusBadge = '';
+    if (finished) statusBadge = '<span class="status">✓ Finalizado</span>';
+    else if (live) statusBadge = '<span class="live">● En juego</span>';
     const timeBadge = match.time ? `<span class="kick">🕒 ${match.time}</span>` : '';
     const meta = statusBadge + timeBadge;
-    const soonBadge = (!thumbnail && !finished) ? '<span class="soon">Próximamente</span>' : '';
+    const soonBadge = (!thumbnail && !finished && !live) ? '<span class="soon">Próximamente</span>' : '';
 
     const banner = thumbnail
         ? `<div class="banner" style="background-image:url('${escapeHtml(thumbnail)}')">${meta}</div>`
@@ -443,12 +451,12 @@ const renderMatchCard = (match) => {
                     <div class="team">${flagImg(away)}<span class="name">${escapeHtml(away.name)}</span></div>
                 </div>
                 <div class="phase">${escapeHtml(phaseLabel)}</div>
-                <div class="buttons">
+                ${hideButtons ? '' : `<div class="buttons">
                     ${renderButton(match.dazn, 'logo-dazn', 'dazn')}
                     ${renderButton(match.rtve, 'logo-rtve', 'rtve')}
                     ${renderButton(match.replay, null, 'replay', '@Replay')}
                     ${renderButton(match.sportschau, null, 'sportschau', 'Sportschau')}
-                </div>
+                </div>`}
             </div>
         </article>`;
 };
@@ -504,10 +512,11 @@ const buildPage = (daznFeed, tveFeed, replayFeed, sportschauFeed) => {
     // Hace 6 días (para mostrar hoy + 6 días anteriores = 7 días en la pestaña principal).
     const sixDaysAgo = dateKeyMadrid(new Date(Date.now() - 6 * 24 * 60 * 60 * 1000));
 
-    const renderDay = (dateKey, heading, asc) => {
+    const renderDay = (dateKey, heading, asc, hideButtons) => {
         // asc=true: hora más temprana primero (próximos). Si no: más reciente primero (jugados).
         const items = days.get(dateKey).sort((a, b) => asc ? a.sortTime - b.sortTime : b.sortTime - a.sortTime);
-        return `<section class="day"><h2>${heading}</h2><div class="cards">${items.map(renderMatchCard).join('')}</div></section>`;
+        const cards = items.map((m) => renderMatchCard(m, hideButtons)).join('');
+        return `<section class="day"><h2>${heading}</h2><div class="cards">${cards}</div></section>`;
     };
     const dayHeading = (dateKey) => dateKey === today ? 'Hoy · ' + prettyDate(today) : prettyDate(dateKey);
 
@@ -532,7 +541,7 @@ const buildPage = (daznFeed, tveFeed, replayFeed, sportschauFeed) => {
     const restSections = [...days.keys()]
         .filter((dateKey) => dateKey > today)
         .sort((a, b) => a.localeCompare(b))
-        .map((dateKey) => renderDay(dateKey, prettyDate(dateKey), true)) // hora ascendente
+        .map((dateKey) => renderDay(dateKey, prettyDate(dateKey), true, true)) // hora ascendente, sin botones (futuros)
         .join('');
 
     // Dos pestañas: "Hoy y anteriores" (partidos jugados) y "Próximos partidos".
@@ -646,11 +655,13 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
         .banner::after { content: ""; position: absolute; inset: 0; backdrop-filter: blur(16px); background: rgba(20,24,40,.28); }
         .banner-empty { background: linear-gradient(110deg, var(--ca), var(--us) 55%, var(--mx)); }
         .banner-empty::after { display: none; }
-        .banner .kick, .banner .soon, .banner .status {
+        .banner .kick, .banner .soon, .banner .status, .banner .live {
             position: relative; z-index: 1; color: #fff; font-weight: 700; font-size: .82rem;
             background: rgba(0,0,0,.35); padding: 4px 12px; border-radius: 999px;
         }
         .banner .status { background: rgba(0,154,68,.92); }
+        .banner .live { background: rgba(224,35,26,.95); animation: livePulse 1.4s ease-in-out infinite; }
+        @keyframes livePulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
         .body { padding: 10px 14px 12px; }
         .teams { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
         .team { display: flex; flex-direction: column; align-items: center; flex: 1; gap: 5px; }
@@ -844,7 +855,7 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
         <img class="emblem" src="/emblem.svg" alt="FIFA World Cup 2026" width="63" height="98">
         <h1>World Cup 2026<span class="sub2">Sin Spoilers</span></h1>
         <div class="host"><span class="ca">CANADÁ</span><span>·</span><span class="us">USA</span><span>·</span><span class="mx">MÉXICO</span></div>
-        <div class="note">Video resúmenes sin mostrar el resultado final.</div>
+        <div class="note">Video resúmenes en diferido sin mostrar el resultado final.</div>
     </header>
 
     <main><!--CONTENT--></main>
