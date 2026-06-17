@@ -385,9 +385,9 @@ const flagImg = (team) =>
 const renderButton = (entry, symbolId, brandClass, textLogo) => {
     let logo;
     if (brandClass === 'replay' && REPLAY_LOGO) {
-        logo = `<img class="brand replay-img" src="/replay-logo" alt="Replay" aria-hidden="true">`;
+        logo = `<span class="brand replay-img"><img src="/replay-logo" alt="Replay" aria-hidden="true"></span>`;
     } else if (brandClass === 'sportschau' && SPORTSCHAU_LOGO) {
-        logo = `<img class="brand sportschau-img" src="/sportschau-logo" alt="Sportschau" aria-hidden="true">`;
+        logo = `<span class="brand sportschau-img"><img src="/sportschau-logo" alt="Sportschau" aria-hidden="true"></span>`;
     } else if (symbolId) {
         logo = `<svg class="brand ${brandClass}" aria-hidden="true"><use href="#${symbolId}"></use></svg>`;
     } else {
@@ -397,9 +397,9 @@ const renderButton = (entry, symbolId, brandClass, textLogo) => {
     if (brandClass === 'replay') {
         audio = `<span class="audio" title="Sin narración"><span class="nospeak">🗣️</span></span>`;
     } else if (brandClass === 'sportschau') {
-        audio = `<span class="audio" title="Narración en alemán">🗣️<img class="miniflag" src="https://flagcdn.com/w20/de.png" width="16" height="11" alt="Alemán"></span>`;
+        audio = `<span class="audio" title="Narración en alemán">🗣️<img class="miniflag" src="https://flagcdn.com/w40/de.png" srcset="https://flagcdn.com/w80/de.png 2x" width="16" height="11" alt="Alemán"></span>`;
     } else {
-        audio = `<span class="audio" title="Narración en español de España">🗣️<img class="miniflag" src="https://flagcdn.com/w20/es.png" width="16" height="11" alt="España"></span>`;
+        audio = `<span class="audio" title="Narración en español de España">🗣️<img class="miniflag" src="https://flagcdn.com/w40/es.png" srcset="https://flagcdn.com/w80/es.png 2x" width="16" height="11" alt="España"></span>`;
     }
     if (entry) {
         const cap = entry.duration ? `Ver ▶ <span class="dur">${entry.duration}</span>` : 'Ver ▶';
@@ -764,11 +764,12 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
         .watch .brand.logo-rtve, .brand.rtve { height: 20px; width: 39px; }
         .watch .brand.logo-dazn, .brand.dazn { height: 26px; width: 26px; border-radius: 4px; }
         .watch .brand.logo-replay, .brand.replay { height: 24px; width: 24px; }
-        .watch .brand.replay-img { height: 26px; width: 26px; border-radius: 50%; object-fit: cover; }
+        .watch .brand.replay-img { position: relative; height: 26px; width: 26px; border-radius: 50%; overflow: hidden; }
+        .watch .brand.replay-img img { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 118%; height: 118%; object-fit: cover; }
         .watch .brand.brand-text { height: auto; width: auto; font-weight: 800; font-size: .95rem; line-height: 26px; letter-spacing: .2px; }
         .watch .cap { flex: 1; text-align: center; font-size: .7rem; font-weight: 700; white-space: nowrap; }
         .watch .cap .dur { font-weight: 800; opacity: .6; font-variant-numeric: tabular-nums; }
-        .watch .audio { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; font-size: .72rem; margin-top: 0; line-height: 1; }
+        .watch .audio { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: .72rem; margin-top: 0; line-height: 1; }
         .watch .miniflag { width: 16px; height: 11px; border-radius: 2px; box-shadow: 0 0 0 .5px rgba(0,0,0,.15); }
         .watch .audio .nospeak { position: relative; display: inline-block; line-height: 1; }
         .watch .audio .nospeak::after {
@@ -785,7 +786,8 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
         .watch.replay:not(.disabled) { border-color: rgba(0,51,160,.4); background: #eef2fb; }
         .watch.sportschau { text-decoration: none; }
         .watch.sportschau .brand.brand-text { color: #1a7a3c; font-size: .78rem; }
-        .watch.sportschau .brand.sportschau-img { height: 26px; width: 26px; border-radius: 50%; object-fit: cover; background: #fff; }
+        .watch.sportschau .brand.sportschau-img { position: relative; height: 28px; width: 28px; border-radius: 50%; overflow: hidden; background: #18232f; }
+        .watch.sportschau .brand.sportschau-img img { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 175%; height: auto; }
         .watch.sportschau .cap { color: #1a7a3c; }
         .watch.sportschau:not(.disabled) { border-color: rgba(26,122,60,.42); background: #eef9f1; }
         .watch.disabled { cursor: default; opacity: .45; background: #f5f6f9; }
