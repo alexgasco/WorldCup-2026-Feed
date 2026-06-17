@@ -792,7 +792,7 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
         <img class="emblem" src="/emblem.svg" alt="FIFA World Cup 2026" width="63" height="98">
         <h1>World Cup 2026<span class="sub2">Sin Spoilers</span></h1>
         <div class="host"><span class="ca">CANADÁ</span><span>·</span><span class="us">USA</span><span>·</span><span class="mx">MÉXICO</span></div>
-        <div class="note">Resúmenes sin spoilers (sin mostrar el resultado final).</div>
+        <div class="note">Video resúmenes sin mostrar el resultado final.</div>
     </header>
 
     <main><!--CONTENT--></main>
