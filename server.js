@@ -35,6 +35,23 @@ try {
     REPLAY_LOGO = null;
 }
 
+// Logo del canal Sportschau: igual que Replay, se usa si colocas el archivo en la carpeta
+// (sportschau-logo.png / .svg / .jpg). Si no está, se muestra el texto "Sportschau".
+let SPORTSCHAU_LOGO = null;
+try {
+    if (fs.existsSync(path.join(__dirname, 'sportschau-logo.png'))) {
+        SPORTSCHAU_LOGO = { data: fs.readFileSync(path.join(__dirname, 'sportschau-logo.png')), type: 'image/png' };
+    } else if (fs.existsSync(path.join(__dirname, 'sportschau-logo.svg'))) {
+        SPORTSCHAU_LOGO = { data: fs.readFileSync(path.join(__dirname, 'sportschau-logo.svg')), type: 'image/svg+xml' };
+    } else if (fs.existsSync(path.join(__dirname, 'sportschau-logo.jpg'))) {
+        SPORTSCHAU_LOGO = { data: fs.readFileSync(path.join(__dirname, 'sportschau-logo.jpg')), type: 'image/jpeg' };
+    } else if (fs.existsSync(path.join(__dirname, 'sportschau-logo.jpeg'))) {
+        SPORTSCHAU_LOGO = { data: fs.readFileSync(path.join(__dirname, 'sportschau-logo.jpeg')), type: 'image/jpeg' };
+    }
+} catch (error) {
+    SPORTSCHAU_LOGO = null;
+}
+
 // Icono del balón del Mundial para la pestaña del navegador (favicon).
 // Coloca el archivo en la carpeta (ball.png / ball.svg / ball.jpg). Si no está, se usa el emblema oficial.
 let BALL_ICON = null;
@@ -53,6 +70,7 @@ try {
 const daznPlaylistId = 'PL8vYHFKv-YcqjDmrVZm-AghTsjCaMNNwi';
 const tvePlaylistId = 'PLhEMBJiEYKv5FvOHB49kE5-dCMHzZHuKa';
 const replayPlaylistId = 'PLPPlHBqoxcoM';
+const sportschauPlaylistId = 'PLvMKvgz66TDSJfYeh9xEhX4pOvEojIjwp'; // Sportschau (ARD, alemán). No permite incrustar: se abre en YouTube.
 const PORT = process.env.PORT || 3000;
 
 // Clave de la API de YouTube (se lee de la variable de entorno de Render, nunca va en el código).
@@ -252,6 +270,18 @@ const COUNTRIES = [
     ['República de Corea', 'kr'], ['Corea', 'kr'], ['Chequia', 'cz'],
     ['Holanda', 'nl'], ['Curaçao', 'cw'], ['Arabia Saudita', 'sa'],
     ['República Democrática del Congo', 'cd'], ['Bosnia', 'ba'],
+    // Nombres en ALEMÁN (los usa el canal Sportschau / ARD)
+    ['Mexiko', 'mx'], ['Südafrika', 'za'], ['Südkorea', 'kr'], ['Korea Republik', 'kr'],
+    ['Tschechien', 'cz'], ['Kanada', 'ca'], ['Bosnien', 'ba'], ['Katar', 'qa'],
+    ['Schweiz', 'ch'], ['Brasilien', 'br'], ['Marokko', 'ma'], ['Schottland', 'gb-sct'],
+    ['Vereinigte Staaten', 'us'], ['USA', 'us'], ['Australien', 'au'], ['Türkei', 'tr'],
+    ['Deutschland', 'de'], ['Elfenbeinküste', 'ci'], ['Niederlande', 'nl'],
+    ['Schweden', 'se'], ['Tunesien', 'tn'], ['Belgien', 'be'], ['Ägypten', 'eg'],
+    ['Neuseeland', 'nz'], ['Spanien', 'es'], ['Kap Verde', 'cv'], ['Saudi-Arabien', 'sa'],
+    ['Frankreich', 'fr'], ['Norwegen', 'no'], ['Argentinien', 'ar'], ['Algerien', 'dz'],
+    ['Österreich', 'at'], ['Jordanien', 'jo'], ['DR Kongo', 'cd'], ['Kongo', 'cd'],
+    ['Usbekistan', 'uz'], ['Kolumbien', 'co'], ['Kroatien', 'hr'],
+    ['Japan', 'jp'], ['England', 'gb-eng'],
 ];
 
 const stripAccents = (text) =>
@@ -356,16 +386,28 @@ const renderButton = (entry, symbolId, brandClass, textLogo) => {
     let logo;
     if (brandClass === 'replay' && REPLAY_LOGO) {
         logo = `<img class="brand replay-img" src="/replay-logo" alt="Replay" aria-hidden="true">`;
+    } else if (brandClass === 'sportschau' && SPORTSCHAU_LOGO) {
+        logo = `<img class="brand sportschau-img" src="/sportschau-logo" alt="Sportschau" aria-hidden="true">`;
     } else if (symbolId) {
         logo = `<svg class="brand ${brandClass}" aria-hidden="true"><use href="#${symbolId}"></use></svg>`;
     } else {
         logo = `<span class="brand brand-text ${brandClass}">${textLogo}</span>`;
     }
-    const audio = brandClass === 'replay'
-        ? `<span class="audio" title="Sin narración"><span class="nospeak">🗣️</span></span>`
-        : `<span class="audio" title="Narración en español de España">🗣️<img class="miniflag" src="https://flagcdn.com/w20/es.png" width="16" height="11" alt="España"></span>`;
+    let audio;
+    if (brandClass === 'replay') {
+        audio = `<span class="audio" title="Sin narración"><span class="nospeak">🗣️</span></span>`;
+    } else if (brandClass === 'sportschau') {
+        audio = `<span class="audio" title="Narración en alemán">🗣️<img class="miniflag" src="https://flagcdn.com/w20/de.png" width="16" height="11" alt="Alemán"></span>`;
+    } else {
+        audio = `<span class="audio" title="Narración en español de España">🗣️<img class="miniflag" src="https://flagcdn.com/w20/es.png" width="16" height="11" alt="España"></span>`;
+    }
     if (entry) {
         const cap = entry.duration ? `Ver ▶ <span class="dur">${entry.duration}</span>` : 'Ver ▶';
+        // Sportschau no permite incrustar: el botón ABRE el vídeo en YouTube (nueva pestaña).
+        // (Sus títulos/portadas no muestran el resultado, así que no hay spoiler.)
+        if (brandClass === 'sportschau') {
+            return `<a class="watch ${brandClass}" href="${escapeHtml(entry.link)}" target="_blank" rel="noopener" title="Se abre en YouTube">${logo}<span class="cap">${cap}</span>${audio}</a>`;
+        }
         return `<button class="watch ${brandClass}" data-provider="${brandClass}" data-video="${escapeHtml(entry.videoId)}" data-title="${escapeHtml(entry.title)}" data-score-start="${entry.scoreStart}" data-score-len="${entry.scoreLen}">${logo}<span class="cap">${cap}</span>${audio}</button>`;
     }
     return `<button class="watch ${brandClass} disabled" disabled>${logo}<span class="cap">No disponible</span>${audio}</button>`;
@@ -373,7 +415,7 @@ const renderButton = (entry, symbolId, brandClass, textLogo) => {
 
 const renderMatchCard = (match) => {
     const [home, away] = match.teams;
-    const reference = match.rtve || match.dazn || match.replay;
+    const reference = match.rtve || match.dazn || match.replay || match.sportschau;
     const thumbnail = reference && reference.thumbnail ? reference.thumbnail : '';
     const phase = match.phase || 'Fase de grupos';
     // Solo en fase de grupos añadimos "· Grupo X" (en eliminatorias no hay grupo).
@@ -405,12 +447,13 @@ const renderMatchCard = (match) => {
                     ${renderButton(match.dazn, 'logo-dazn', 'dazn')}
                     ${renderButton(match.rtve, 'logo-rtve', 'rtve')}
                     ${renderButton(match.replay, null, 'replay', '@Replay')}
+                    ${renderButton(match.sportschau, null, 'sportschau', 'Sportschau')}
                 </div>
             </div>
         </article>`;
 };
 
-const buildPage = (daznFeed, tveFeed, replayFeed) => {
+const buildPage = (daznFeed, tveFeed, replayFeed, sportschauFeed) => {
     const matches = new Map();
 
     // 1) Seed with the manual calendar so future matches show without a video.
@@ -448,6 +491,7 @@ const buildPage = (daznFeed, tveFeed, replayFeed) => {
     tveFeed.items.forEach((item) => addVideo(item, 'rtve'));
     daznFeed.items.forEach((item) => addVideo(item, 'dazn'));
     replayFeed.items.forEach((item) => addVideo(item, 'replay'));
+    sportschauFeed.items.forEach((item) => addVideo(item, 'sportschau'));
 
     // 3) Group by day (newest day first), matches sorted by kickoff time.
     const days = new Map();
@@ -622,7 +666,7 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
             text-transform: uppercase; background: #eef2fb; border: 1px solid var(--line);
             padding: 3px 10px; border-radius: 999px;
         }
-        .buttons { display: flex; gap: 8px; margin-top: 10px; }
+        .buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
         #videoOverlay {
             display: none; position: fixed; inset: 0; z-index: 9999; align-items: center; justify-content: center;
             padding: 24px; background: rgba(15,20,48,.55); backdrop-filter: blur(3px);
@@ -710,20 +754,21 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
         .player .frame .mute-hint.hidden { opacity: 0; }
         .player .yt-fallback { display: block; margin-top: 12px; color: #cdd3e6; font-size: .8rem; text-decoration: underline; text-align: center; }
         .watch {
-            flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px;
-            border: 1.5px solid var(--line); border-radius: 14px; padding: 8px 8px; cursor: pointer;
+            flex: 1; display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 4px;
+            border: 1.5px solid var(--line); border-radius: 12px; padding: 7px 8px; cursor: pointer;
             background: #fff; transition: transform .08s, box-shadow .15s;
         }
         .watch:active { transform: scale(.97); }
-        .watch .brand { display: block; }
+        .watch .brand { display: block; flex-shrink: 0; }
+        .watch .audio { flex-shrink: 0; }
         .watch .brand.logo-rtve, .brand.rtve { height: 20px; width: 39px; }
         .watch .brand.logo-dazn, .brand.dazn { height: 26px; width: 26px; border-radius: 4px; }
         .watch .brand.logo-replay, .brand.replay { height: 24px; width: 24px; }
         .watch .brand.replay-img { height: 26px; width: 26px; border-radius: 50%; object-fit: cover; }
         .watch .brand.brand-text { height: auto; width: auto; font-weight: 800; font-size: .95rem; line-height: 26px; letter-spacing: .2px; }
-        .watch .cap { font-size: .7rem; font-weight: 700; white-space: nowrap; }
+        .watch .cap { flex: 1; text-align: center; font-size: .7rem; font-weight: 700; white-space: nowrap; }
         .watch .cap .dur { font-weight: 800; opacity: .6; font-variant-numeric: tabular-nums; }
-        .watch .audio { display: flex; align-items: center; justify-content: center; gap: 3px; font-size: .72rem; margin-top: 3px; line-height: 1; }
+        .watch .audio { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; font-size: .72rem; margin-top: 0; line-height: 1; }
         .watch .miniflag { width: 16px; height: 11px; border-radius: 2px; box-shadow: 0 0 0 .5px rgba(0,0,0,.15); }
         .watch .audio .nospeak { position: relative; display: inline-block; line-height: 1; }
         .watch .audio .nospeak::after {
@@ -738,6 +783,11 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
         .watch.replay .brand.replay { color: var(--us); }
         .watch.replay .cap { color: var(--us); }
         .watch.replay:not(.disabled) { border-color: rgba(0,51,160,.4); background: #eef2fb; }
+        .watch.sportschau { text-decoration: none; }
+        .watch.sportschau .brand.brand-text { color: #1a7a3c; font-size: .78rem; }
+        .watch.sportschau .brand.sportschau-img { height: 26px; width: 26px; border-radius: 50%; object-fit: cover; background: #fff; }
+        .watch.sportschau .cap { color: #1a7a3c; }
+        .watch.sportschau:not(.disabled) { border-color: rgba(26,122,60,.42); background: #eef9f1; }
         .watch.disabled { cursor: default; opacity: .45; background: #f5f6f9; }
         .watch.disabled .cap { color: var(--muted); }
         /* Pestañas: "Hoy y anteriores" / "Próximos partidos". */
@@ -1170,7 +1220,7 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
 //  "No disponible" (que es lo que pasó en la franja de las 8:30-9:00).
 // ===========================================================================
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutos
-const feedCache = { dazn: { items: [] }, rtve: { items: [] }, replay: { items: [] } };
+const feedCache = { dazn: { items: [] }, rtve: { items: [] }, replay: { items: [] }, sportschau: { items: [] } };
 let cacheTime = 0;          // momento de la última actualización
 let refreshing = null;      // actualización en curso (para no lanzar varias a la vez)
 
@@ -1189,6 +1239,7 @@ const refreshFeeds = async () => {
         tryFetch(daznPlaylistId, 'dazn'),
         tryFetch(tvePlaylistId, 'rtve'),
         tryFetch(replayPlaylistId, 'replay'),
+        tryFetch(sportschauPlaylistId, 'sportschau'),
     ]);
     cacheTime = Date.now();
 };
@@ -1239,10 +1290,21 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
+    if (req.url === '/sportschau-logo') {
+        if (SPORTSCHAU_LOGO) {
+            res.writeHead(200, { 'Content-Type': SPORTSCHAU_LOGO.type, 'Cache-Control': 'public, max-age=86400' });
+            res.end(SPORTSCHAU_LOGO.data);
+        } else {
+            res.writeHead(404);
+            res.end();
+        }
+        return;
+    }
+
     try {
         const feeds = await getFeeds();
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(buildPage(feeds.dazn, feeds.rtve, feeds.replay));
+        res.end(buildPage(feeds.dazn, feeds.rtve, feeds.replay, feeds.sportschau));
     } catch (serverError) {
         res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
         res.end('System Failure: ' + serverError.message);
