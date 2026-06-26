@@ -111,10 +111,14 @@ const fetchPlaylistApi = async (playlistId) => {
         pages += 1;
     } while (pageToken && pages < 10); // tope de seguridad: hasta 500 vídeos
 
-    // Segunda llamada: pedir la DURACIÓN de cada vídeo (la lista anterior no la trae).
+    // Segunda llamada: pedir DURACIÓN y si se puede INCRUSTAR (la lista anterior no lo trae).
     const ids = items.map((it) => it.id.split(':').pop());
-    const durations = await fetchDurations(ids);
-    items.forEach((it) => { it.duration = durations[it.id.split(':').pop()] || ''; });
+    const meta = await fetchVideoMeta(ids);
+    items.forEach((it) => {
+        const m = meta[it.id.split(':').pop()] || {};
+        it.duration = m.duration || '';
+        it.embeddable = m.embeddable !== false; // por defecto true salvo que YouTube diga false
+    });
     return { items };
 };
 
@@ -129,18 +133,21 @@ const parseDuration = (iso) => {
     return mm + ':' + String(ss).padStart(2, '0');
 };
 
-// Pide las duraciones de una lista de vídeos (de 50 en 50) y devuelve { videoId: "3:45" }.
-const fetchDurations = async (videoIds) => {
+// Pide duración y permiso de incrustación (de 50 en 50). Devuelve { videoId: { duration, embeddable } }.
+const fetchVideoMeta = async (videoIds) => {
     const map = {};
     for (let i = 0; i < videoIds.length; i += 50) {
         const batch = videoIds.slice(i, i + 50);
-        const url = 'https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=' +
+        const url = 'https://www.googleapis.com/youtube/v3/videos?part=contentDetails,status&id=' +
             batch.join(',') + '&key=' + encodeURIComponent(YOUTUBE_API_KEY);
         const response = await fetch(url);
         if (!response.ok) throw new Error('API videos HTTP ' + response.status);
         const data = await response.json();
         (data.items || []).forEach((v) => {
-            map[v.id] = parseDuration(v.contentDetails && v.contentDetails.duration);
+            map[v.id] = {
+                duration: parseDuration(v.contentDetails && v.contentDetails.duration),
+                embeddable: !(v.status && v.status.embeddable === false),
+            };
         });
     }
     return map;
@@ -369,6 +376,7 @@ const buildVideoEntry = (item, source) => {
         source, teams, link: item.link, videoId: (item.id || '').split(':').pop(),
         thumbnail, views, title: item.title || '',
         duration: item.duration || '', // "3:45"; vacío si se leyó por RSS (sin duración)
+        embeddable: item.embeddable !== false, // false si el dueño (FIFA) inhabilitó la incrustación
         scoreStart: scoreMatch ? scoreMatch.index : -1,
         scoreLen: scoreMatch ? scoreMatch[0].length : 0,
         date: new Date(item.isoDate),
@@ -408,7 +416,7 @@ const renderButton = (entry, symbolId, brandClass, textLogo) => {
         if (brandClass === 'sportschau') {
             return `<a class="watch ${brandClass}" href="${escapeHtml(entry.link)}" target="_blank" rel="noopener" title="Se abre en YouTube">${logo}<span class="cap">${cap}</span>${audio}</a>`;
         }
-        return `<button class="watch ${brandClass}" data-provider="${brandClass}" data-video="${escapeHtml(entry.videoId)}" data-title="${escapeHtml(entry.title)}" data-score-start="${entry.scoreStart}" data-score-len="${entry.scoreLen}">${logo}<span class="cap">${cap}</span>${audio}</button>`;
+        return `<button class="watch ${brandClass}" data-provider="${brandClass}" data-video="${escapeHtml(entry.videoId)}" data-title="${escapeHtml(entry.title)}" data-score-start="${entry.scoreStart}" data-score-len="${entry.scoreLen}" data-link="${escapeHtml(entry.link)}" data-embeddable="${entry.embeddable ? 'true' : 'false'}">${logo}<span class="cap">${cap}</span>${audio}</button>`;
     }
     return `<button class="watch ${brandClass} disabled" disabled>${logo}<span class="cap">No disponible</span>${audio}</button>`;
 };
@@ -1183,8 +1191,31 @@ const PAGE_TEMPLATE = `<!DOCTYPE html>
                 });
             });
 
+            // Muestra el mensaje cuando FIFA ha inhabilitado la incrustación, y ofrece abrir YouTube.
+            function showBlocked(link) {
+                pendingId = null; // para que el botón "go" no intente reproducir
+                var iconEl = overlay.querySelector('.box .icon');
+                var titleEl = overlay.querySelector('.box .title');
+                var subEl = overlay.querySelector('.box .sub');
+                if (iconEl) iconEl.textContent = '⚠️';
+                if (titleEl) titleEl.textContent = 'No disponible aquí';
+                if (subEl) subEl.textContent = 'FIFA ha inhabilitado la reproducción de este vídeo en nuestra web. Puedes verlo en YouTube (ojo: allí puede aparecer el resultado).';
+                goButton.textContent = '▶ Ver en YouTube';
+                goButton.classList.remove('disabled');
+                goButton.disabled = false;
+                goButton.onclick = function () { if (link) window.open(link, '_blank', 'noopener'); closeAll(); };
+                overlay.classList.remove('playing');
+                overlay.classList.remove('big');
+                overlay.classList.add('show');
+            }
+
             document.querySelectorAll('.watch[data-video]').forEach(function (element) {
                 element.addEventListener('click', function () {
+                    // Si el vídeo no permite incrustar (bloqueo de FIFA): mensaje + abrir YouTube.
+                    if (element.getAttribute('data-embeddable') === 'false') {
+                        showBlocked(element.getAttribute('data-link') || '');
+                        return;
+                    }
                     pendingId = element.getAttribute('data-video');
                     pendingProvider = element.getAttribute('data-provider') || 'dazn';
                     pendingTitle = element.getAttribute('data-title') || '';
